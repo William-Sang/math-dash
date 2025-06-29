@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Pause, Home, Timer, Zap, Heart } from 'lucide-react'
+import { useAudio } from '@/hooks/useAudio'
+import { useAchievements } from '@/hooks/useAchievements'
+import { useToast } from '@/hooks/useToast'
 
 interface Question {
   num1: number
@@ -19,16 +22,32 @@ export default function GamePage() {
   const navigate = useNavigate()
   const location = useLocation()
   const state = location.state as LocationState
-  const selectedQuestionType = state?.questionType || 'multiple-choice' // 默认为选择题类型
+  const selectedQuestionType = state?.questionType || 'multiple-choice'
   
+  // Hooks
+  const { playSound, playBackgroundMusic, stopBackgroundMusic } = useAudio()
+  const { updateStats } = useAchievements()
+  const { toast } = useToast()
+  
+  // Game state
   const [score, setScore] = useState(0)
   const [timeLeft, setTimeLeft] = useState(60)
   const [lives, setLives] = useState(3)
   const [streak, setStreak] = useState(0)
-  const [question, setQuestion] = useState<Question>({ num1: 5, num2: 3, operator: '+', type: selectedQuestionType, options: selectedQuestionType === 'multiple-choice' ? [5, 6, 7, 8] : undefined })
+  const [question, setQuestion] = useState<Question>({ 
+    num1: 5, 
+    num2: 3, 
+    operator: '+', 
+    type: selectedQuestionType, 
+    options: selectedQuestionType === 'multiple-choice' ? [5, 6, 7, 8] : undefined 
+  })
   const [answer, setAnswer] = useState('')
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
   const [isGameActive, setIsGameActive] = useState(true)
+  const [gameStartTime] = useState(Date.now())
+  const [questionsAnswered, setQuestionsAnswered] = useState(0)
+  const [correctAnswers, setCorrectAnswers] = useState(0)
+  const [perfectAnswers, setPerfectAnswers] = useState(0)
 
   const calculateAnswer = useCallback(() => {
     const { num1, num2, operator } = question
@@ -46,16 +65,13 @@ export default function GamePage() {
     
     // Generate 3 incorrect options
     while (options.length < 4) {
-      // Generate options that are close to the correct answer but different
       const variance = Math.max(1, Math.floor(Math.abs(correctAnswer) * 0.2))
       const offset = Math.floor(Math.random() * variance * 2) - variance
       const newOption = correctAnswer + offset
       
-      // Ensure the option is different from correct answer and not already in the list
       if (newOption !== correctAnswer && !options.includes(newOption) && newOption >= 0) {
         options.push(newOption)
       } else {
-        // Fallback: add a random number based on the range
         const fallbackOption = correctAnswer + (Math.random() > 0.5 ? 1 : -1) * (Math.floor(Math.random() * 10) + 1)
         if (fallbackOption !== correctAnswer && !options.includes(fallbackOption) && fallbackOption >= 0) {
           options.push(fallbackOption)
@@ -63,14 +79,22 @@ export default function GamePage() {
       }
     }
     
-    // Shuffle the options
     return options.sort(() => Math.random() - 0.5)
+  }, [])
+
+  const getOperatorType = useCallback((operator: string) => {
+    switch (operator) {
+      case '+': return 'addition'
+      case '-': return 'subtraction'
+      case '×': return 'multiplication'
+      case '÷': return 'division'
+      default: return 'addition'
+    }
   }, [])
 
   const generateQuestion = useCallback(() => {
     const operators = ['+', '-', '×', '÷']
     const operator = operators[Math.floor(Math.random() * operators.length)]
-    // 使用用户选择的题目类型，而不是随机生成
     const questionType = selectedQuestionType
     let num1: number, num2: number
     
@@ -98,7 +122,6 @@ export default function GamePage() {
     
     const newQuestion: Question = { num1, num2, operator, type: questionType }
     
-    // Generate options for multiple choice questions
     if (questionType === 'multiple-choice') {
       const correctAnswer = (() => {
         switch (operator) {
@@ -119,14 +142,44 @@ export default function GamePage() {
 
   const handleGameEnd = useCallback(() => {
     setIsGameActive(false)
+    stopBackgroundMusic()
+    playSound('gameEnd')
+    
+    // Calculate game statistics
+    const gameTimeSpent = Math.round((Date.now() - gameStartTime) / 1000)
+    const finalAccuracy = questionsAnswered > 0 ? Math.round((correctAnswers / questionsAnswered) * 100) : 0
+    
+    // Update achievements and statistics
+    const sessionData = {
+      score,
+      accuracy: finalAccuracy,
+      timeSpent: gameTimeSpent,
+      questionsAnswered,
+      perfectAnswers,
+      streak
+    }
+    
+    const newAchievements = updateStats(sessionData)
+    
+    // Show achievement notifications
+    if (newAchievements.length > 0) {
+      newAchievements.forEach(achievement => {
+        playSound('achievement')
+        toast.success(`🎉 解锁成就: ${achievement.name}`)
+      })
+    }
+    
     navigate('/result', { 
       state: { 
         score, 
-        totalTime: 60 - timeLeft,
-        accuracy: Math.round((score / Math.max(score + (3 - lives) * 10, 1)) * 100)
+        totalTime: gameTimeSpent,
+        accuracy: finalAccuracy,
+        questionsAnswered,
+        streak,
+        newAchievements: newAchievements.length
       } 
     })
-  }, [navigate, score, timeLeft, lives])
+  }, [navigate, score, gameStartTime, questionsAnswered, correctAnswers, perfectAnswers, streak, updateStats, stopBackgroundMusic, playSound, toast])
 
   const handleSubmit = useCallback(() => {
     const correctAnswer = calculateAnswer()
@@ -138,14 +191,38 @@ export default function GamePage() {
       userAnswer = selectedOption || 0
     }
     
-    if (userAnswer === correctAnswer) {
+    const isCorrect = userAnswer === correctAnswer
+    const operatorType = getOperatorType(question.operator)
+    
+    // Update statistics
+    setQuestionsAnswered(prev => prev + 1)
+    if (isCorrect) {
+      setCorrectAnswers(prev => prev + 1)
+      setPerfectAnswers(prev => prev + 1)
+    }
+    
+    // Update operator-specific stats
+    updateStats({
+      operatorType: operatorType as any,
+      isCorrect
+    })
+    
+    if (isCorrect) {
       const points = 10 + (streak * 2)
       setScore(prevScore => prevScore + points)
       setStreak(prevStreak => prevStreak + 1)
+      playSound('correct')
+      
+      // Show streak bonuses
+      if (streak > 0 && (streak + 1) % 5 === 0) {
+        toast.success(`🔥 ${streak + 1}连击! 奖励分数!`)
+      }
+      
       generateQuestion()
     } else {
       setLives(prevLives => prevLives - 1)
       setStreak(0)
+      playSound('incorrect')
       
       if (lives <= 1) {
         handleGameEnd()
@@ -153,21 +230,44 @@ export default function GamePage() {
         generateQuestion()
       }
     }
-  }, [calculateAnswer, answer, selectedOption, question.type, streak, lives, generateQuestion, handleGameEnd])
+  }, [calculateAnswer, answer, selectedOption, question.type, question.operator, streak, lives, generateQuestion, handleGameEnd, getOperatorType, updateStats, playSound, toast])
 
   const handleOptionClick = useCallback((option: number) => {
     setSelectedOption(option)
-    // Auto-submit when option is selected
     setTimeout(() => {
       const correctAnswer = calculateAnswer()
-      if (option === correctAnswer) {
+      const isCorrect = option === correctAnswer
+      const operatorType = getOperatorType(question.operator)
+      
+      // Update statistics
+      setQuestionsAnswered(prev => prev + 1)
+      if (isCorrect) {
+        setCorrectAnswers(prev => prev + 1)
+        setPerfectAnswers(prev => prev + 1)
+      }
+      
+      // Update operator-specific stats
+      updateStats({
+        operatorType: operatorType as any,
+        isCorrect
+      })
+      
+      if (isCorrect) {
         const points = 10 + (streak * 2)
         setScore(prevScore => prevScore + points)
         setStreak(prevStreak => prevStreak + 1)
+        playSound('correct')
+        
+        // Show streak bonuses
+        if (streak > 0 && (streak + 1) % 5 === 0) {
+          toast.success(`🔥 ${streak + 1}连击! 奖励分数!`)
+        }
+        
         generateQuestion()
       } else {
         setLives(prevLives => prevLives - 1)
         setStreak(0)
+        playSound('incorrect')
         
         if (lives <= 1) {
           handleGameEnd()
@@ -175,8 +275,19 @@ export default function GamePage() {
           generateQuestion()
         }
       }
-    }, 500) // Short delay to show the selection
-  }, [calculateAnswer, streak, lives, generateQuestion, handleGameEnd])
+    }, 500)
+  }, [calculateAnswer, streak, lives, generateQuestion, handleGameEnd, getOperatorType, updateStats, playSound, toast, question.operator])
+
+  // Game initialization and cleanup
+  useEffect(() => {
+    playSound('gameStart')
+    playBackgroundMusic()
+    generateQuestion()
+    
+    return () => {
+      stopBackgroundMusic()
+    }
+  }, [playSound, playBackgroundMusic, stopBackgroundMusic, generateQuestion])
 
   // Timer
   useEffect(() => {
@@ -188,15 +299,22 @@ export default function GamePage() {
     }
   }, [timeLeft, isGameActive, handleGameEnd])
 
+  // Game pause/resume
+  const togglePause = () => {
+    setIsGameActive(!isGameActive)
+    playSound('click')
+    if (!isGameActive) {
+      playBackgroundMusic()
+    } else {
+      stopBackgroundMusic()
+    }
+  }
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && question.type === 'input') {
       handleSubmit()
     }
   }
-
-  useEffect(() => {
-    generateQuestion()
-  }, [generateQuestion])
 
   const canSubmit = question.type === 'input' ? answer : selectedOption !== null
 
@@ -205,7 +323,10 @@ export default function GamePage() {
       {/* Header */}
       <div className="flex justify-between items-center px-4 mb-8">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => {
+            stopBackgroundMusic()
+            navigate('/')
+          }}
           className="btn btn-secondary btn-sm flex items-center gap-2"
         >
           <Home className="w-4 h-4" />
@@ -213,7 +334,7 @@ export default function GamePage() {
         </button>
         
         <button
-          onClick={() => setIsGameActive(!isGameActive)}
+          onClick={togglePause}
           className="btn btn-secondary btn-sm flex items-center gap-2"
         >
           <Pause className="w-4 h-4" />
@@ -231,6 +352,7 @@ export default function GamePage() {
         <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
           <Zap className="w-5 h-5" />
           <span className="font-bold text-lg">{streak}</span>
+          {streak >= 5 && <span className="text-sm">🔥</span>}
         </div>
         
         <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
@@ -241,10 +363,21 @@ export default function GamePage() {
 
       {/* Score */}
       <div className="text-center mb-8">
-        <div className="text-4xl font-bold text-primary-600 dark:text-primary-400">
+        <motion.div 
+          key={score}
+          initial={{ scale: 1 }}
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ duration: 0.3 }}
+          className="text-4xl font-bold text-primary-600 dark:text-primary-400"
+        >
           {score}
-        </div>
+        </motion.div>
         <div className="text-gray-500 dark:text-gray-400">分数</div>
+        
+        {/* Progress info */}
+        <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          答题: {questionsAnswered} | 正确: {correctAnswers} | 准确率: {questionsAnswered > 0 ? Math.round((correctAnswers / questionsAnswered) * 100) : 0}%
+        </div>
       </div>
 
       {/* Question */}
@@ -267,7 +400,6 @@ export default function GamePage() {
             </div>
             
             {question.type === 'input' ? (
-              // Input Type Question
               <>
                 <input
                   type="number"
@@ -289,7 +421,6 @@ export default function GamePage() {
                 </button>
               </>
             ) : (
-              // Multiple Choice Question
               <div className="grid grid-cols-2 gap-4">
                 {question.options?.map((option, index) => (
                   <button
@@ -312,6 +443,27 @@ export default function GamePage() {
           </div>
         </div>
       </motion.div>
+
+      {/* Pause Overlay */}
+      {!isGameActive && timeLeft > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        >
+          <div className="card p-8 text-center">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+              游戏已暂停
+            </h2>
+            <button
+              onClick={togglePause}
+              className="btn btn-primary btn-lg"
+            >
+              继续游戏
+            </button>
+          </div>
+        </motion.div>
+      )}
     </div>
   )
 } 

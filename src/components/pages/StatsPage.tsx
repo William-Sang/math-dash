@@ -1,33 +1,95 @@
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, TrendingUp, Target, Clock, Zap } from 'lucide-react'
+import { ArrowLeft, TrendingUp, Target, Clock, Zap, Trophy, Calendar, BarChart3 } from 'lucide-react'
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  Area,
+  AreaChart
+} from 'recharts'
+import { useAchievements } from '@/hooks/useAchievements'
 
 export default function StatsPage() {
   const navigate = useNavigate()
-
-  // Mock data - in real app, this would come from localStorage or a data store
-  const stats = {
-    totalGames: 25,
-    totalScore: 2450,
-    bestScore: 180,
-    averageScore: 98,
-    totalTime: 1500, // in seconds
-    averageTime: 60,
-    accuracy: 85,
-    streak: 12,
-    achievements: [
-      { name: '百分达人', description: '单局得分超过100分', unlocked: true },
-      { name: '速算高手', description: '平均每题用时少于3秒', unlocked: true },
-      { name: '数学大师', description: '单局得分超过200分', unlocked: false },
-      { name: '连击王', description: '连续答对20题', unlocked: false },
-    ]
-  }
+  const { stats, achievements } = useAchievements()
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60)
     const remainingSeconds = seconds % 60
     return `${minutes}分${remainingSeconds}秒`
   }
+
+  // Prepare chart data
+  const recentGamesData = stats.gameHistory.slice(-10).map((game, index) => ({
+    game: `第${index + 1}局`,
+    score: game.score,
+    accuracy: game.accuracy,
+    time: game.timeSpent
+  }))
+
+  const operatorData = [
+    {
+      name: '加法',
+      correct: stats.operatorStats.addition.correct,
+      total: stats.operatorStats.addition.total,
+      accuracy: stats.operatorStats.addition.total > 0 
+        ? Math.round((stats.operatorStats.addition.correct / stats.operatorStats.addition.total) * 100) 
+        : 0
+    },
+    {
+      name: '减法',
+      correct: stats.operatorStats.subtraction.correct,
+      total: stats.operatorStats.subtraction.total,
+      accuracy: stats.operatorStats.subtraction.total > 0 
+        ? Math.round((stats.operatorStats.subtraction.correct / stats.operatorStats.subtraction.total) * 100) 
+        : 0
+    },
+    {
+      name: '乘法',
+      correct: stats.operatorStats.multiplication.correct,
+      total: stats.operatorStats.multiplication.total,
+      accuracy: stats.operatorStats.multiplication.total > 0 
+        ? Math.round((stats.operatorStats.multiplication.correct / stats.operatorStats.multiplication.total) * 100) 
+        : 0
+    },
+    {
+      name: '除法',
+      correct: stats.operatorStats.division.correct,
+      total: stats.operatorStats.division.total,
+      accuracy: stats.operatorStats.division.total > 0 
+        ? Math.round((stats.operatorStats.division.correct / stats.operatorStats.division.total) * 100) 
+        : 0
+    }
+  ]
+
+  const achievementData = [
+    { name: '已解锁', value: achievements.filter(a => a.unlocked).length, color: '#10b981' },
+    { name: '未解锁', value: achievements.filter(a => !a.unlocked).length, color: '#6b7280' }
+  ]
+
+  const rarityData = achievements.reduce((acc, achievement) => {
+    if (achievement.unlocked) {
+      acc[achievement.rarity] = (acc[achievement.rarity] || 0) + 1
+    }
+    return acc
+  }, {} as Record<string, number>)
+
+  const rarityChartData = Object.entries(rarityData).map(([rarity, count]) => ({
+    name: rarity === 'common' ? '普通' : rarity === 'rare' ? '稀有' : rarity === 'epic' ? '史诗' : '传奇',
+    value: count,
+    color: rarity === 'common' ? '#6b7280' : rarity === 'rare' ? '#3b82f6' : rarity === 'epic' ? '#7c3aed' : '#f59e0b'
+  }))
 
   return (
     <div className="min-h-screen py-8">
@@ -50,7 +112,7 @@ export default function StatsPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="max-w-2xl mx-auto px-4 space-y-6"
+        className="max-w-6xl mx-auto px-4 space-y-6"
       >
         {/* Overall Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -103,7 +165,7 @@ export default function StatsPage() {
             className="card p-4 text-center"
           >
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {stats.streak}
+              {stats.bestStreak}
             </div>
             <div className="text-sm text-gray-500 dark:text-gray-400">
               最佳连击
@@ -111,11 +173,133 @@ export default function StatsPage() {
           </motion.div>
         </div>
 
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recent Games Performance */}
+          {recentGamesData.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+              className="card p-6"
+            >
+              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+                <TrendingUp className="w-5 h-5" />
+                近期游戏表现
+              </h3>
+              
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={recentGamesData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="game" />
+                  <YAxis />
+                  <Tooltip />
+                  <Area 
+                    type="monotone" 
+                    dataKey="score" 
+                    stroke="#3b82f6" 
+                    fill="#3b82f6" 
+                    fillOpacity={0.3}
+                    name="得分"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </motion.div>
+          )}
+
+          {/* Operator Performance */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+            className="card p-6"
+          >
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              运算符表现
+            </h3>
+            
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={operatorData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="accuracy" fill="#10b981" name="正确率 (%)" />
+              </BarChart>
+            </ResponsiveContainer>
+          </motion.div>
+
+          {/* Accuracy Over Time */}
+          {recentGamesData.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.7 }}
+              className="card p-6"
+            >
+              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+                <Target className="w-5 h-5" />
+                正确率趋势
+              </h3>
+              
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={recentGamesData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="game" />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip />
+                  <Line 
+                    type="monotone" 
+                    dataKey="accuracy" 
+                    stroke="#ef4444" 
+                    strokeWidth={2}
+                    name="正确率 (%)"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </motion.div>
+          )}
+
+          {/* Achievement Progress */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.8 }}
+            className="card p-6"
+          >
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+              <Trophy className="w-5 h-5" />
+              成就进度
+            </h3>
+            
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={achievementData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={120}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {achievementData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </motion.div>
+        </div>
+
         {/* Detailed Stats */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
+          transition={{ duration: 0.6, delay: 0.9 }}
           className="card p-6"
         >
           <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
@@ -123,8 +307,8 @@ export default function StatsPage() {
             详细统计
           </h3>
           
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="flex items-center gap-3">
                 <Target className="w-5 h-5 text-green-500" />
                 <span className="text-gray-700 dark:text-gray-300">平均得分</span>
@@ -134,7 +318,7 @@ export default function StatsPage() {
               </span>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="flex items-center gap-3">
                 <Clock className="w-5 h-5 text-blue-500" />
                 <span className="text-gray-700 dark:text-gray-300">总游戏时间</span>
@@ -144,62 +328,60 @@ export default function StatsPage() {
               </span>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="flex items-center gap-3">
                 <Zap className="w-5 h-5 text-yellow-500" />
-                <span className="text-gray-700 dark:text-gray-300">平均每局时间</span>
+                <span className="text-gray-700 dark:text-gray-300">完美游戏</span>
               </div>
               <span className="font-semibold text-gray-900 dark:text-white">
-                {stats.averageTime}秒
+                {stats.perfectGames}
               </span>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="flex items-center gap-3">
-                <TrendingUp className="w-5 h-5 text-purple-500" />
-                <span className="text-gray-700 dark:text-gray-300">总得分</span>
+                <Calendar className="w-5 h-5 text-purple-500" />
+                <span className="text-gray-700 dark:text-gray-300">连续天数</span>
               </div>
               <span className="font-semibold text-gray-900 dark:text-white">
-                {stats.totalScore.toLocaleString()}
+                {stats.dailyStreak}天
               </span>
             </div>
           </div>
         </motion.div>
 
-        {/* Achievements */}
+        {/* Achievements Grid */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
+          transition={{ duration: 0.6, delay: 1.0 }}
           className="card p-6"
         >
           <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
             成就系统
           </h3>
           
-          <div className="space-y-3">
-            {stats.achievements.map((achievement, index) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {achievements.map((achievement, index) => (
               <motion.div
-                key={achievement.name}
+                key={achievement.id}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: 0.7 + index * 0.1 }}
-                className={`flex items-center gap-3 p-3 rounded-lg ${
+                transition={{ duration: 0.4, delay: 1.1 + index * 0.05 }}
+                className={`flex items-center gap-3 p-3 rounded-lg border-2 ${
                   achievement.unlocked
-                    ? 'bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-700'
-                    : 'bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
+                    ? getRarityStyles(achievement.rarity).bg + ' ' + getRarityStyles(achievement.rarity).border
+                    : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                 }`}
               >
-                <div
-                  className={`w-3 h-3 rounded-full ${
-                    achievement.unlocked ? 'bg-success-500' : 'bg-gray-400'
-                  }`}
-                />
+                <div className="text-2xl">
+                  {achievement.icon}
+                </div>
                 <div className="flex-1">
                   <div
                     className={`font-medium ${
                       achievement.unlocked
-                        ? 'text-success-800 dark:text-success-200'
+                        ? getRarityStyles(achievement.rarity).text
                         : 'text-gray-700 dark:text-gray-300'
                     }`}
                   >
@@ -208,40 +390,67 @@ export default function StatsPage() {
                   <div
                     className={`text-sm ${
                       achievement.unlocked
-                        ? 'text-success-600 dark:text-success-300'
+                        ? getRarityStyles(achievement.rarity).subtext
                         : 'text-gray-500 dark:text-gray-400'
                     }`}
                   >
                     {achievement.description}
                   </div>
+                  {achievement.reward && achievement.unlocked && (
+                    <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                      奖励: {achievement.reward.type === 'points' ? `${achievement.reward.value}积分` : achievement.reward.value}
+                    </div>
+                  )}
                 </div>
                 {achievement.unlocked && (
-                  <div className="text-success-500 text-xl">✓</div>
+                  <div className={`text-xl ${getRarityStyles(achievement.rarity).text}`}>✓</div>
                 )}
               </motion.div>
             ))}
           </div>
         </motion.div>
-
-        {/* Progress Chart Placeholder */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.8 }}
-          className="card p-6"
-        >
-          <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-            进步趋势
-          </h3>
-          
-          <div className="h-32 bg-gradient-to-r from-primary-100 to-blue-100 dark:from-primary-900/20 dark:to-blue-900/20 rounded-lg flex items-center justify-center">
-            <div className="text-center text-gray-500 dark:text-gray-400">
-              <TrendingUp className="w-8 h-8 mx-auto mb-2" />
-              <div className="text-sm">图表功能即将推出</div>
-            </div>
-          </div>
-        </motion.div>
       </motion.div>
     </div>
   )
+}
+
+// Helper function to get rarity-based styles
+function getRarityStyles(rarity: string) {
+  switch (rarity) {
+    case 'common':
+      return {
+        bg: 'bg-gray-50 dark:bg-gray-800',
+        border: 'border-gray-300 dark:border-gray-600',
+        text: 'text-gray-800 dark:text-gray-200',
+        subtext: 'text-gray-600 dark:text-gray-300'
+      }
+    case 'rare':
+      return {
+        bg: 'bg-blue-50 dark:bg-blue-900/20',
+        border: 'border-blue-300 dark:border-blue-700',
+        text: 'text-blue-800 dark:text-blue-200',
+        subtext: 'text-blue-600 dark:text-blue-300'
+      }
+    case 'epic':
+      return {
+        bg: 'bg-purple-50 dark:bg-purple-900/20',
+        border: 'border-purple-300 dark:border-purple-700',
+        text: 'text-purple-800 dark:text-purple-200',
+        subtext: 'text-purple-600 dark:text-purple-300'
+      }
+    case 'legendary':
+      return {
+        bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+        border: 'border-yellow-300 dark:border-yellow-700',
+        text: 'text-yellow-800 dark:text-yellow-200',
+        subtext: 'text-yellow-600 dark:text-yellow-300'
+      }
+    default:
+      return {
+        bg: 'bg-gray-50 dark:bg-gray-800',
+        border: 'border-gray-300 dark:border-gray-600',
+        text: 'text-gray-800 dark:text-gray-200',
+        subtext: 'text-gray-600 dark:text-gray-300'
+      }
+  }
 } 
