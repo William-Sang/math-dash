@@ -103,9 +103,9 @@ export default function GamePage() {
       const operators = ['+', '-', '×', '÷']
       const difficultySettings = {
         easy: { min: 1, max: 10, allowDivision: false },
-        medium: { min: 1, max: 50, allowDivision: true },
-        hard: { min: 10, max: 100, allowDivision: true },
-        expert: { min: 50, max: 200, allowDivision: true }
+        medium: { min: 1, max: 20, allowDivision: true },
+        hard: { min: 10, max: 50, allowDivision: true },
+        expert: { min: 20, max: 100, allowDivision: true }
       }
       
       const config = difficultySettings[settings.difficulty as keyof typeof difficultySettings] || difficultySettings.medium
