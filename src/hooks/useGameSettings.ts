@@ -14,7 +14,7 @@ interface GameSettingsState {
 }
 
 const DEFAULT_SETTINGS: GameSettings = {
-  gameDuration: 60, // 默认 60 秒
+  gameDuration: 30, // 默认 30 秒
   difficulty: 'medium' // 默认中等难度
 }
 
