@@ -1,0 +1,46 @@
+/* 彻底移除所有边框 */
+
+/* 全局边框重置 */
+* {
+  border: none !important;
+  outline: none !important;
+}
+
+/* 特殊元素保留功能性边框 */
+input, textarea, select {
+  border: 1px solid #d1d5db !important;
+}
+
+input:focus, textarea:focus, select:focus {
+  border: 2px solid #3b82f6 !important;
+  outline: none !important;
+}
+
+/* 深色模式下的表单元素边框 */
+.dark input, .dark textarea, .dark select {
+  border: 1px solid #4b5563 !important;
+}
+
+.dark input:focus, .dark textarea:focus, .dark select:focus {
+  border: 2px solid #3b82f6 !important;
+}
+
+/* 确保卡片组件无边框 */
+.card, [class*="card"], .AnimatedCard {
+  border: none !important;
+}
+
+/* 移除可能的默认边框 */
+div, span, section, article, main, aside, header, footer, nav {
+  border: none !important;
+}
+
+/* 按钮边框重置 */
+button {
+  border: none !important;
+}
+
+/* 移除可能的伪元素边框 */
+*::before, *::after {
+  border: none !important;
+} 

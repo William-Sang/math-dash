@@ -1,0 +1,90 @@
+/* 性能优化的CSS样式 */
+
+/* 硬件加速 */
+.gpu-accelerated {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* 减少重绘的过渡 */
+.optimized-transition {
+  transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+  will-change: transform, opacity;
+}
+
+/* 优化的按钮动画 */
+.btn-optimized {
+  transition: transform 0.15s ease-out;
+  will-change: transform;
+}
+
+.btn-optimized:hover {
+  transform: scale(1.02);
+}
+
+.btn-optimized:active {
+  transform: scale(0.98);
+}
+
+/* 减少layout shift的容器 */
+.stable-container {
+  contain: layout style paint;
+}
+
+/* 优化的卡片组件 */
+.card-optimized {
+  contain: layout style;
+  will-change: auto;
+}
+
+/* 减少重排的网格 */
+.grid-optimized {
+  contain: layout;
+}
+
+/* 性能优化的动画 */
+@keyframes fadeInFast {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUpFast {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-fast {
+  animation: fadeInFast 0.2s ease-out;
+}
+
+.slide-up-fast {
+  animation: slideUpFast 0.2s ease-out;
+}
+
+/* 禁用动画的媒体查询 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 优化文本渲染 */
+.optimized-text {
+  text-rendering: optimizeSpeed;
+  font-smooth: never;
+  -webkit-font-smoothing: subpixel-antialiased;
+} 

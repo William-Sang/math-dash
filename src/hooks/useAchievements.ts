@@ -242,6 +242,7 @@ interface AchievementsState {
   achievements: Achievement[]
   stats: GameStats
   unlockedPoints: number
+  updateDailyStreak: () => void
   updateStats: (_sessionData: Partial<GameSession> & { 
     operatorType?: 'addition' | 'subtraction' | 'multiplication' | 'division'
     isCorrect?: boolean
@@ -259,26 +260,48 @@ const useAchievementsStore = create<AchievementsState>()(
       stats: DEFAULT_STATS,
       unlockedPoints: 0,
 
+      updateDailyStreak: () =>
+        set((state) => {
+          const currentStats = state.stats
+          const today = new Date().toISOString().split('T')[0]
+          
+          // Only update if it's a new day
+          if (currentStats.lastPlayDate !== today) {
+            let dailyStreak = currentStats.dailyStreak
+            
+            if (currentStats.lastPlayDate === '') {
+              // First time playing
+              dailyStreak = 1
+            } else {
+              const lastDate = new Date(currentStats.lastPlayDate)
+              const currentDate = new Date(today)
+              const diffTime = Math.abs(currentDate.getTime() - lastDate.getTime())
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+              
+              if (diffDays === 1) {
+                dailyStreak += 1
+              } else if (diffDays > 1) {
+                dailyStreak = 1
+              }
+            }
+            
+            return {
+              stats: {
+                ...currentStats,
+                dailyStreak,
+                lastPlayDate: today
+              }
+            }
+          }
+          
+          return state
+        }),
+
       updateStats: (_sessionData) =>
         set((state) => {
           const currentStats = state.stats
           const today = new Date().toISOString().split('T')[0]
           
-          // Update daily streak
-          let dailyStreak = currentStats.dailyStreak
-          if (currentStats.lastPlayDate !== today) {
-            const lastDate = new Date(currentStats.lastPlayDate)
-            const currentDate = new Date(today)
-            const diffTime = Math.abs(currentDate.getTime() - lastDate.getTime())
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-            
-            if (diffDays === 1) {
-              dailyStreak += 1
-            } else if (diffDays > 1) {
-              dailyStreak = 1
-            }
-          }
-
           // Update operator stats if provided
           if (_sessionData.operatorType && _sessionData.isCorrect !== undefined) {
             const operatorStats = { ...currentStats.operatorStats }
@@ -300,8 +323,6 @@ const useAchievementsStore = create<AchievementsState>()(
             totalWrongAnswers: currentStats.totalWrongAnswers + Math.max(0, (_sessionData.questionsAnswered || 0) - (_sessionData.perfectAnswers || 0)),
             perfectGames: currentStats.perfectGames + (_sessionData.accuracy === 100 ? 1 : 0),
             fastestTime: currentStats.fastestTime === 0 ? (_sessionData.timeSpent || 0) : Math.min(currentStats.fastestTime, _sessionData.timeSpent || 0),
-            dailyStreak,
-            lastPlayDate: today,
             gameHistory: _sessionData.score !== undefined ? [
               ...(currentStats.gameHistory || []),
               {

@@ -7,16 +7,64 @@
     <meta name="description" content="Math Dash Mania - 数学冲刺狂，一个有趣的心算训练游戏" />
     <meta name="keywords" content="数学游戏,心算训练,教育游戏,Math Game" />
     <meta name="theme-color" content="#3b82f6" />
-    <link rel="manifest" href="/manifest.json" />
-    <title>Math Dash Mania - 数学冲刺狂</title>
     
-    <!-- Preconnect to improve performance -->
+    <!-- 性能优化 -->
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    
+    <!-- 资源预加载 -->
+    <link rel="preconnect" href="https://assets.mixkit.co" crossorigin />
+    <link rel="dns-prefetch" href="https://assets.mixkit.co" />
+    
+    <!-- 字体优化 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="manifest" href="/manifest.json" />
+    <title>Math Dash Mania - 数学冲刺狂</title>
+    
+    <!-- 内联关键CSS -->
+    <style>
+      /* 防止FOUC (Flash of Unstyled Content) */
+      html { visibility: hidden; opacity: 0; }
+      html.loaded { visibility: visible; opacity: 1; transition: opacity 0.3s; }
+      
+      /* 加载动画 */
+      .loading-spinner {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      /* 初始加载样式 */
+      #root {
+        min-height: 100vh;
+      }
+    </style>
   </head>
   <body class="font-sans antialiased">
-    <div id="root"></div>
+    <div id="root">
+      <div class="loading-spinner"></div>
+    </div>
     <script type="module" src="./src/main.tsx"></script>
+    
+    <!-- 页面加载完成后移除加载状态 -->
+    <script>
+      window.addEventListener('load', function() {
+        document.documentElement.classList.add('loaded');
+      });
+    </script>
   </body>
 </html> 

@@ -1,3 +1,5 @@
+@import './styles/border-reset.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,16 +7,34 @@
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
+    margin: 0;
+    padding: 0;
+    border: none;
+    box-sizing: border-box;
   }
   
   body {
     @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    margin: 0;
+    padding: 0;
+    border: none;
   }
 
-  * {
+  *, *::before, *::after {
     @apply outline-primary-500;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  
+  *:not(input):not(textarea):not(select):not(button) {
+    border: none !important;
+  }
+  
+  .card, .card * {
+    border: none !important;
   }
 }
 
@@ -52,7 +72,8 @@
   }
 
   .card {
-    @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700;
+    @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg;
+    border: none !important;
   }
   
   .input {

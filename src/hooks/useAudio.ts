@@ -81,7 +81,7 @@ class AudioManager {
           src: [src],
           volume: 0.2, // 使用默认音量，稍后会通过updateSoundVolume更新
           preload: true,
-          onloaderror: (id: any, error: any) => {
+          onloaderror: (_id: any, error: any) => {
             console.error(`Error loading sound '${key}':`, error);
           }
         }
@@ -110,7 +110,7 @@ class AudioManager {
         volume: 0.2, // 使用默认音量，稍后会通过updateMusicVolume更新
         preload: true,
         html5: true,
-        onloaderror: (id, error) => {
+        onloaderror: (_id, error) => {
           console.error("Error loading background music:", error);
         },
         onload: () => {

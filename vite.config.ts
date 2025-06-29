@@ -11,7 +11,20 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/assets\.mixkit\.co\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'audio-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 * 7 // 7天
+              }
+            }
+          }
+        ]
       },
       includeAssets: ['favicon.svg'],
       manifest: {
@@ -49,14 +62,32 @@ export default defineConfig({
   build: {
     target: 'esnext',
     minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+        pure_funcs: ['console.log']
+      }
+    },
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
           motion: ['framer-motion'],
-          router: ['react-router-dom']
+          router: ['react-router-dom'],
+          charts: ['recharts'],
+          audio: ['howler']
         }
       }
-    }
+    },
+    // 启用CSS代码分割
+    cssCodeSplit: true,
+    // 设置chunk大小警告限制
+    chunkSizeWarningLimit: 1000
+  },
+  // 优化依赖预构建
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'framer-motion', 'howler'],
+    exclude: []
   }
 }) 

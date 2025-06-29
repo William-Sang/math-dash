@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { motion } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Pause, Home, Timer, Zap, Heart } from 'lucide-react'
 import { useAudio } from '@/hooks/useAudio'
@@ -7,6 +6,7 @@ import { useAchievements, Achievement } from '@/hooks/useAchievements'
 import { useToast } from '@/hooks/useToast'
 import { useGameSettings } from '@/hooks/useGameSettings'
 import ErrorBoundary from '@/components/ErrorBoundary'
+import { PageContainer } from '@/components/ui/OptimizedMotion'
 
 interface Question {
   num1: number
@@ -64,39 +64,23 @@ export default function GamePage() {
     return timerId
   }, [])
 
+  // Calculate correct answer
   const correctAnswer = useMemo(() => {
-    const { num1, num2, operator } = question
-    switch (operator) {
-      case '+': return num1 + num2
-      case '-': return num1 - num2
-      case '×': return num1 * num2
-      case '÷': return Math.round(num1 / num2) // 确保除法结果为整数
+    switch (question.operator) {
+      case '+': return question.num1 + question.num2
+      case '-': return question.num1 - question.num2
+      case '×': return question.num1 * question.num2
+      case '÷': return question.num1 / question.num2
       default: return 0
     }
-  }, [question])
+  }, [question.num1, question.num2, question.operator])
 
-  const generateMultipleChoiceOptions = useCallback((correctAnswer: number) => {
-    const options = [correctAnswer]
-    
-    // Generate 3 incorrect options
-    while (options.length < 4) {
-      const variance = Math.max(1, Math.floor(Math.abs(correctAnswer) * 0.2))
-      const offset = Math.floor(Math.random() * variance * 2) - variance
-      const newOption = correctAnswer + offset
-      
-      if (newOption !== correctAnswer && !options.includes(newOption) && newOption >= 0) {
-        options.push(newOption)
-      } else {
-        const fallbackOption = correctAnswer + (Math.random() > 0.5 ? 1 : -1) * (Math.floor(Math.random() * 10) + 1)
-        if (fallbackOption !== correctAnswer && !options.includes(fallbackOption) && fallbackOption >= 0) {
-          options.push(fallbackOption)
-        }
-      }
-    }
-    
-    return options.sort(() => Math.random() - 0.5)
+  // Generate random number within range
+  const getRandomNumber = useCallback((min: number, max: number) => {
+    return Math.floor(Math.random() * (max - min + 1)) + min
   }, [])
 
+  // Get operator type for stats
   const getOperatorType = useCallback((operator: string) => {
     switch (operator) {
       case '+': return 'addition'
@@ -107,60 +91,87 @@ export default function GamePage() {
     }
   }, [])
 
+  // Generate question based on difficulty
   const generateQuestion = useCallback(() => {
-    if (isGeneratingQuestion.current) {
-      console.log('Question generation already in progress, skipping...')
-      return
-    }
+    if (isGeneratingQuestion.current) return
     isGeneratingQuestion.current = true
-    
+
     try {
+      let num1: number, num2: number, operator: string
+      
       const operators = ['+', '-', '×', '÷']
-      const operator = operators[Math.floor(Math.random() * operators.length)]
-      const questionType = selectedQuestionType
-      let num1: number, num2: number
-      
-      switch (operator) {
-        case '+':
-          num1 = Math.floor(Math.random() * 50) + 1
-          num2 = Math.floor(Math.random() * 50) + 1
-          break
-        case '-':
-          num1 = Math.floor(Math.random() * 50) + 20
-          num2 = Math.floor(Math.random() * num1)
-          break
-        case '×':
-          num1 = Math.floor(Math.random() * 12) + 1
-          num2 = Math.floor(Math.random() * 12) + 1
-          break
-        case '÷':
-          num2 = Math.floor(Math.random() * 12) + 1
-          num1 = num2 * (Math.floor(Math.random() * 12) + 1)
-          break
-        default:
-          num1 = 5
-          num2 = 3
+      const difficultySettings = {
+        easy: { min: 1, max: 10, allowDivision: false },
+        medium: { min: 1, max: 50, allowDivision: true },
+        hard: { min: 10, max: 100, allowDivision: true },
+        expert: { min: 50, max: 200, allowDivision: true }
       }
       
-      const newQuestion: Question = { num1, num2, operator, type: questionType }
+      const config = difficultySettings[settings.difficulty as keyof typeof difficultySettings] || difficultySettings.medium
       
-      if (questionType === 'multiple-choice') {
-        const newCorrectAnswer = operator === '+' ? num1 + num2 : operator === '-' ? num1 - num2 : operator === '×' ? num1 * num2 : Math.round(num1 / num2)
-        newQuestion.options = generateMultipleChoiceOptions(newCorrectAnswer)
+      do {
+        operator = operators[Math.floor(Math.random() * (config.allowDivision ? 4 : 3))]
+        
+        if (operator === '÷') {
+          // For division, ensure clean division
+          const divisor = getRandomNumber(2, Math.min(config.max / 2, 20))
+          const quotient = getRandomNumber(config.min, Math.floor(config.max / divisor))
+          num1 = divisor * quotient
+          num2 = divisor
+        } else {
+          num1 = getRandomNumber(config.min, config.max)
+          num2 = getRandomNumber(config.min, config.max)
+          
+          // Ensure subtraction doesn't result in negative numbers
+          if (operator === '-' && num2 > num1) {
+            [num1, num2] = [num2, num1]
+          }
+        }
+      } while (num1 === 0 || num2 === 0)
+
+      const correctAnswer = (() => {
+        switch (operator) {
+          case '+': return num1 + num2
+          case '-': return num1 - num2
+          case '×': return num1 * num2
+          case '÷': return num1 / num2
+          default: return 0
+        }
+      })()
+
+      let options: number[] | undefined
+      if (selectedQuestionType === 'multiple-choice') {
+        options = [correctAnswer]
+        
+        // Generate 3 wrong answers
+        while (options.length < 4) {
+          const wrongAnswer = correctAnswer + getRandomNumber(-10, 10)
+          if (wrongAnswer !== correctAnswer && !options.includes(wrongAnswer) && wrongAnswer > 0) {
+            options.push(wrongAnswer)
+          }
+        }
+        
+        // Shuffle options
+        options = options.sort(() => Math.random() - 0.5)
       }
+
+      setQuestion({
+        num1,
+        num2,
+        operator,
+        type: selectedQuestionType,
+        options
+      })
       
-      setQuestion(newQuestion)
+      // Reset input states
       setAnswer('')
       setSelectedOption(null)
-      
-      console.log('New question generated:', newQuestion)
     } catch (error) {
       console.error('Error generating question:', error)
     } finally {
-      // Reset the flag immediately after generating the question
       isGeneratingQuestion.current = false
     }
-  }, [selectedQuestionType, generateMultipleChoiceOptions])
+  }, [settings.difficulty, selectedQuestionType, getRandomNumber])
 
   const handleGameEnd = useCallback(() => {
     setIsGameActive(false)
@@ -283,19 +294,19 @@ export default function GamePage() {
       console.error('处理答案时出错:', error)
       toast.error('处理答案时出现错误')
     }
-  }, [correctAnswer, answer, selectedOption, question.type, question.operator, streak, lives, getOperatorType, updateStats, playSound, toast, generateQuestion, safeDelay])
+  }, [question.type, answer, selectedOption, correctAnswer, getOperatorType, updateStats, streak, lives, playSound, toast, generateQuestion, safeDelay])
 
   const handleOptionClick = useCallback((option: number) => {
     try {
+      if (selectedOption !== null || !isGameActive) return
+      
       setSelectedOption(option)
       
-      // Add a small delay to show visual feedback
+      // Delay to show visual feedback
       safeDelay(() => {
         try {
           const isCorrect = option === correctAnswer
           const operatorType = getOperatorType(question.operator)
-          
-          console.log(`Option clicked: ${option}, Correct answer: ${correctAnswer}, Is correct: ${isCorrect}`)
           
           // Update statistics
           setQuestionsAnswered(prev => prev + 1)
@@ -321,7 +332,7 @@ export default function GamePage() {
               toast.success(`🔥 ${streak + 1}连击! 奖励分数!`)
             }
             
-            // Generate next question immediately for correct answers
+            // Generate new question
             generateQuestion()
           } else {
             setLives(prevLives => prevLives - 1)
@@ -333,7 +344,7 @@ export default function GamePage() {
                 handleGameEndRef.current()
               }
             } else {
-              // Generate next question immediately for incorrect answers too
+              // Generate new question
               generateQuestion()
             }
           }
@@ -393,28 +404,34 @@ export default function GamePage() {
     }
   }, []) // Empty dependency array - this should only run once on mount
 
-  // Update game time when settings change (only if game hasn't started significantly)
+  // Timer countdown
   useEffect(() => {
-    // Only reset time if the game just started (within first few seconds)
-    const gameRunTime = Math.round((Date.now() - gameStartTime) / 1000)
-    if (gameRunTime < 5) {
-      setTimeLeft(settings.gameDuration)
-    }
-  }, [settings.gameDuration, gameStartTime])
+    if (!isGameActive || timeLeft <= 0) return
 
-  // Timer
-  useEffect(() => {
-    if (isGameActive && timeLeft > 0) {
-      const timer = setTimeout(() => setTimeLeft(prev => prev - 1), 1000)
-      return () => clearTimeout(timer)
-    } else if (timeLeft === 0 && isGameActive) {
-      // Call handleGameEnd safely using ref to avoid dependency issues
-      if (handleGameEndRef.current) {
-        try {
-          handleGameEndRef.current()
-        } catch (error) {
-          console.error('Error ending game:', error)
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          if (handleGameEndRef.current) {
+            handleGameEndRef.current()
+          }
+          return 0
         }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [isGameActive, timeLeft])
+
+  // Auto-end game when time runs out
+  useEffect(() => {
+    if (timeLeft <= 0 && isGameActive) {
+      try {
+        if (handleGameEndRef.current) {
+          handleGameEndRef.current()
+        }
+      } catch (error) {
+        console.error('Error ending game:', error)
       }
     }
   }, [timeLeft, isGameActive]) // Remove handleGameEnd from dependencies
@@ -440,7 +457,7 @@ export default function GamePage() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen flex flex-col py-8">
+      <PageContainer enableAnimations={false}>
       {/* Header */}
       <div className="flex justify-between items-center px-4 mb-8">
         <button
@@ -506,15 +523,9 @@ export default function GamePage() {
 
       {/* Score */}
       <div className="text-center mb-8">
-        <motion.div 
-          key={score}
-          initial={{ scale: 1 }}
-          animate={{ scale: [1, 1.1, 1] }}
-          transition={{ duration: 0.3 }}
-          className="text-4xl font-bold text-primary-600 dark:text-primary-400"
-        >
+        <div className="text-4xl font-bold text-primary-600 dark:text-primary-400">
           {score}
-        </motion.div>
+        </div>
         <div className="text-gray-500 dark:text-gray-400">分数</div>
         
         {/* Progress info */}
@@ -524,13 +535,7 @@ export default function GamePage() {
       </div>
 
       {/* Question */}
-      <motion.div
-        key={`${question.num1}-${question.operator}-${question.num2}-${question.type}`}
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.3 }}
-        className="flex-1 flex flex-col items-center justify-center space-y-8"
-      >
+      <div className="flex-1 flex flex-col items-center justify-center space-y-8">
         <div className="card p-8 max-w-md mx-auto">
           <div className="text-center">
             <div className="text-5xl font-bold text-gray-900 dark:text-white mb-6">
@@ -566,7 +571,7 @@ export default function GamePage() {
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 {question.options?.map((option, index) => (
-                  <motion.button
+                  <button
                     key={index}
                     onClick={() => handleOptionClick(option)}
                     disabled={!isGameActive || selectedOption !== null}
@@ -579,21 +584,17 @@ export default function GamePage() {
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {option}
-                  </motion.button>
+                  </button>
                 ))}
               </div>
             )}
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Pause Overlay */}
       {!isGameActive && timeLeft > 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-        >
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="card p-8 text-center">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
               游戏已暂停
@@ -605,9 +606,9 @@ export default function GamePage() {
               继续游戏
             </button>
           </div>
-        </motion.div>
+        </div>
       )}
-    </div>
+      </PageContainer>
     </ErrorBoundary>
   )
 } 
