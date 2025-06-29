@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Pause, Home, Timer, Zap, Heart } from 'lucide-react'
 import { useAudio } from '@/hooks/useAudio'
-import { useAchievements, Achievement } from '@/hooks/useAchievements'
+import { useAchievements } from '@/hooks/useAchievements'
 import { useToast } from '@/hooks/useToast'
 import { useGameSettings } from '@/hooks/useGameSettings'
 import ErrorBoundary from '@/components/ErrorBoundary'
@@ -28,7 +28,7 @@ export default function GamePage() {
   
   // Hooks
   const { playSound, playBackgroundMusic, stopBackgroundMusic, soundEnabled, setSoundEnabled, musicEnabled, setMusicEnabled } = useAudio()
-  const { updateStats, checkAchievements } = useAchievements()
+  const { updateStats, updateOperatorStats, checkAchievements } = useAchievements()
   const { toast } = useToast()
   const { settings } = useGameSettings()
   
@@ -55,9 +55,8 @@ export default function GamePage() {
   const [correctAnswers, setCorrectAnswers] = useState(0)
   const [perfectAnswers, setPerfectAnswers] = useState(0)
   const isGeneratingQuestion = useRef(false)
-  const achievementTimers = useRef<NodeJS.Timeout[]>([])
   const gameTimers = useRef<NodeJS.Timeout[]>([])
-
+  
   // Safe delay execution that cleans up on unmount
   const safeDelay = useCallback((callback: () => void, delay: number) => {
     const timerId = setTimeout(callback, delay)
@@ -181,59 +180,59 @@ export default function GamePage() {
     }
     gameEndedRef.current = true
     
-    setIsGameActive(false)
-    stopBackgroundMusic()
-    playSound('gameEnd')
-    
-    // Calculate game statistics
-    const gameTimeSpent = Math.round((Date.now() - gameStartTime) / 1000)
-    const finalAccuracy = questionsAnswered > 0 ? Math.round((correctAnswers / questionsAnswered) * 100) : 0
-    
-    // Update achievements and statistics
-    const sessionData = {
-      score,
-      accuracy: finalAccuracy,
-      timeSpent: gameTimeSpent,
-      questionsAnswered,
-      perfectAnswers,
-      streak
-    }
-    
-    updateStats(sessionData)
-    const newAchievements = checkAchievements()
-    
-    // Show achievement notifications with delay to avoid overwhelming
-    if (newAchievements.length > 0) {
-      if (newAchievements.length === 1) {
-        // Single achievement
-        playSound('achievement')
-        toast.success(`🎉 解锁成就: ${newAchievements[0].name}`, undefined, 5000)
-      } else {
-        // Multiple achievements - show summary first
-        playSound('achievement')
-        toast.success(`🎉 解锁了 ${newAchievements.length} 个成就！`, '点击查看详情', 6000)
-        
-        // Then show individual achievements with delay
-        newAchievements.forEach((achievement: Achievement, index: number) => {
-          const timerId = setTimeout(() => {
-            toast.info(`${achievement.icon} ${achievement.name}`, achievement.description, 4000)
-          }, (index + 1) * 1500) // 1.5秒间隔
-          achievementTimers.current.push(timerId)
-        })
-      }
-    }
-    
-    navigate('/result', { 
-      state: { 
-        score, 
-        totalTime: gameTimeSpent,
+    // 异步处理游戏结束逻辑，避免状态更新冲突
+    setTimeout(() => {
+      setIsGameActive(false)
+      stopBackgroundMusic()
+      playSound('gameEnd')
+      
+      // Calculate game statistics
+      const gameTimeSpent = Math.round((Date.now() - gameStartTime) / 1000)
+      const finalAccuracy = questionsAnswered > 0 ? Math.round((correctAnswers / questionsAnswered) * 100) : 0
+      
+      // Update statistics
+      const sessionData = {
+        score,
         accuracy: finalAccuracy,
+        timeSpent: gameTimeSpent,
         questionsAnswered,
-        streak,
-        newAchievements: newAchievements.length
-      } 
-    })
-  }, [navigate, score, gameStartTime, questionsAnswered, correctAnswers, perfectAnswers, streak, updateStats, checkAchievements, stopBackgroundMusic, playSound, toast])
+        perfectAnswers,
+        streak
+      }
+      
+      updateStats(sessionData)
+      
+      // 等待状态更新完成后再检查成就
+      setTimeout(() => {
+        const newAchievements = checkAchievements()
+        
+        // 过滤成就对象，移除不能序列化的函数属性
+        const serializableAchievements = newAchievements.map(achievement => ({
+          id: achievement.id,
+          name: achievement.name,
+          description: achievement.description,
+          icon: achievement.icon,
+          unlocked: achievement.unlocked,
+          unlockedAt: achievement.unlockedAt,
+          reward: achievement.reward,
+          rarity: achievement.rarity
+          // 不包含 condition 函数，因为它不能被序列化
+        }))
+        
+        // 不在游戏页面显示成就弹框，直接跳转到结果页面并传递成就信息
+        navigate('/result', { 
+          state: { 
+            score, 
+            totalTime: gameTimeSpent,
+            accuracy: finalAccuracy,
+            questionsAnswered,
+            streak,
+            newAchievements: serializableAchievements // 传递可序列化的成就对象数组
+          } 
+        })
+      }, 100)
+    }, 0)
+  }, [navigate, score, gameStartTime, questionsAnswered, correctAnswers, perfectAnswers, streak, updateStats, checkAchievements, stopBackgroundMusic, playSound])
 
   // Update the ref whenever handleGameEnd changes
   useEffect(() => {
@@ -264,11 +263,8 @@ export default function GamePage() {
         setPerfectAnswers(prev => prev + 1)
       }
       
-      // Update operator-specific stats
-      updateStats({
-        operatorType: operatorType as any,
-        isCorrect
-      })
+      // Update operator-specific stats only (no achievement triggering data)
+      updateOperatorStats(operatorType as any, isCorrect)
       
       if (isCorrect) {
         const points = 10 + (streak * 2)
@@ -301,7 +297,7 @@ export default function GamePage() {
       console.error('处理答案时出错:', error)
       toast.error('处理答案时出现错误')
     }
-  }, [question.type, answer, selectedOption, correctAnswer, getOperatorType, updateStats, streak, lives, playSound, toast, generateQuestion, safeDelay])
+  }, [question.type, answer, selectedOption, correctAnswer, getOperatorType, updateOperatorStats, streak, lives, playSound, toast, generateQuestion, safeDelay])
 
   const handleOptionClick = useCallback((option: number) => {
     try {
@@ -322,11 +318,8 @@ export default function GamePage() {
             setPerfectAnswers(prev => prev + 1)
           }
           
-          // Update operator-specific stats
-          updateStats({
-            operatorType: operatorType as any,
-            isCorrect
-          })
+          // Update operator-specific stats only (no achievement triggering data)
+          updateOperatorStats(operatorType as any, isCorrect)
           
           if (isCorrect) {
             const points = 10 + (streak * 2)
@@ -364,7 +357,7 @@ export default function GamePage() {
       console.error('选项点击出错:', error)
       toast.error('选择答案时出现错误')
     }
-  }, [correctAnswer, streak, lives, getOperatorType, updateStats, playSound, toast, question.operator, generateQuestion, safeDelay])
+  }, [correctAnswer, streak, lives, getOperatorType, updateOperatorStats, playSound, toast, question.operator, generateQuestion, safeDelay])
 
   // Game initialization and cleanup
   useEffect(() => {
@@ -404,8 +397,6 @@ export default function GamePage() {
         console.error('Error stopping background music:', error)
       }
       // Clear all timers
-      achievementTimers.current.forEach(timerId => clearTimeout(timerId))
-      achievementTimers.current = []
       gameTimers.current.forEach(timerId => clearTimeout(timerId))
       gameTimers.current = []
     }
@@ -413,14 +404,17 @@ export default function GamePage() {
 
   // Timer countdown
   useEffect(() => {
-    if (!isGameActive || timeLeft <= 0) return
+    if (!isGameActive || gameEndedRef.current) return
 
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          if (handleGameEndRef.current) {
-            handleGameEndRef.current()
-          }
+          // 使用setTimeout避免在setState回调中直接调用游戏结束
+          setTimeout(() => {
+            if (handleGameEndRef.current && !gameEndedRef.current) {
+              handleGameEndRef.current()
+            }
+          }, 0)
           return 0
         }
         return prev - 1
@@ -428,10 +422,7 @@ export default function GamePage() {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [isGameActive, timeLeft])
-
-  // 移除重复的游戏结束触发器，避免双重调用
-  // 游戏结束已经在定时器内部处理，这里不需要重复处理
+  }, [isGameActive])
 
   // Game pause/resume
   const togglePause = () => {

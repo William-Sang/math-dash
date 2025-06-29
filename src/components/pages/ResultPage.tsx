@@ -1,19 +1,45 @@
 import { motion } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Trophy, RotateCcw, Home, Share2 } from 'lucide-react'
+import { RotateCcw, Home, Share2 } from 'lucide-react'
 import { useToast } from '@/hooks/useToast'
+import { useAudio } from '@/hooks/useAudio'
+import AchievementManager from '@/components/ui/AchievementManager'
+import { useEffect, useRef } from 'react'
+
+// 成就显示类型（不包含condition函数）
+interface AchievementDisplay {
+  id: string
+  name: string
+  description: string
+  icon: string
+  unlocked: boolean
+  unlockedAt?: Date
+  reward?: {
+    type: 'points' | 'theme' | 'avatar' | 'title'
+    value: string | number
+  }
+  rarity: 'common' | 'rare' | 'epic' | 'legendary'
+}
 
 interface ResultState {
   score: number
   totalTime: number
   accuracy: number
   questionsAnswered?: number
+  newAchievements?: AchievementDisplay[]
 }
 
 export default function ResultPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { toast } = useToast()
+  const { playSound } = useAudio()
+  const playSoundRef = useRef(playSound)
+  
+  // 更新ref引用
+  useEffect(() => {
+    playSoundRef.current = playSound
+  }, [playSound])
   
   const result: ResultState = location.state || { score: 0, totalTime: 0, accuracy: 0, questionsAnswered: 0 }
 
@@ -141,29 +167,13 @@ export default function ResultPage() {
             </button>
           </div>
         </motion.div>
-
-        {/* Achievement */}
-        {result.score >= 100 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.8 }}
-            className="card p-4 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-yellow-200 dark:border-yellow-700"
-          >
-            <div className="flex items-center gap-3">
-              <Trophy className="w-6 h-6 text-yellow-500" />
-              <div>
-                <div className="font-semibold text-yellow-800 dark:text-yellow-200">
-                  成就解锁！
-                </div>
-                <div className="text-sm text-yellow-600 dark:text-yellow-300">
-                  {result.score >= 200 ? '数学大师' : '百分达人'}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
       </motion.div>
+      
+      {/* Achievement Manager */}
+      <AchievementManager 
+        achievements={result.newAchievements || []}
+        playSound={() => playSoundRef.current('achievement')}
+      />
     </div>
   )
 } 

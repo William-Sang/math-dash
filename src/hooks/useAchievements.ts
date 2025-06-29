@@ -247,6 +247,7 @@ interface AchievementsState {
     operatorType?: 'addition' | 'subtraction' | 'multiplication' | 'division'
     isCorrect?: boolean
   }) => void
+  updateOperatorStats: (operatorType: 'addition' | 'subtraction' | 'multiplication' | 'division', isCorrect: boolean) => void
   checkAchievements: () => Achievement[]
   resetStats: () => void
   getUnlockedAchievements: () => Achievement[]
@@ -341,17 +342,37 @@ const useAchievementsStore = create<AchievementsState>()(
           // Calculate averages
           if (newStats.totalGames > 0) {
             newStats.averageScore = Math.round(newStats.totalScore / newStats.totalGames)
-            newStats.averageTime = Math.round(newStats.totalTime / newStats.totalGames)
             const totalAnswers = newStats.totalCorrectAnswers + newStats.totalWrongAnswers
+            newStats.averageTime = totalAnswers > 0 ? Math.round((newStats.totalTime / totalAnswers) * 10) / 10 : 0
             newStats.accuracy = totalAnswers > 0 ? Math.round((newStats.totalCorrectAnswers / totalAnswers) * 100) : 0
           }
 
           return { stats: newStats }
         }),
 
+      updateOperatorStats: (operatorType, isCorrect) =>
+        set((state) => {
+          const currentStats = state.stats
+          const operatorStats = { ...currentStats.operatorStats }
+          operatorStats[operatorType].total += 1
+          if (isCorrect) {
+            operatorStats[operatorType].correct += 1
+          }
+          
+          return { 
+            stats: {
+              ...currentStats,
+              operatorStats
+            }
+          }
+        }),
+
       checkAchievements: () => {
         const { stats, achievements } = get()
+        
         const newlyUnlocked: Achievement[] = []
+        const achievementsToUpdate: string[] = []
+        let totalRewardPoints = 0
 
         const defaultConditions = new Map(DEFAULT_ACHIEVEMENTS.map(a => [a.id, a.condition]));
 
@@ -359,14 +380,21 @@ const useAchievementsStore = create<AchievementsState>()(
           const condition = defaultConditions.get(achievement.id);
           if (condition && !achievement.unlocked && condition(stats)) {
             newlyUnlocked.push({ ...achievement, unlocked: true, unlockedAt: new Date() })
-            set((state) => ({
-              achievements: state.achievements.map((a) =>
-                a.id === achievement.id ? { ...a, unlocked: true, unlockedAt: new Date() } : a
-              ),
-              unlockedPoints: state.unlockedPoints + (achievement.reward?.value as number || 0)
-            }))
+            achievementsToUpdate.push(achievement.id)
+            totalRewardPoints += (achievement.reward?.value as number || 0)
           }
         })
+
+        // 一次性更新所有解锁的成就
+        if (achievementsToUpdate.length > 0) {
+          set((state) => ({
+            achievements: state.achievements.map((a) =>
+              achievementsToUpdate.includes(a.id) ? { ...a, unlocked: true, unlockedAt: new Date() } : a
+            ),
+            unlockedPoints: state.unlockedPoints + totalRewardPoints
+          }))
+        }
+
         return newlyUnlocked
       },
 
