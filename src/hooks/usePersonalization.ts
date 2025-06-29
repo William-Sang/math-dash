@@ -344,44 +344,44 @@ export const usePersonalization = create<PersonalizationState>()(
       themes: DEFAULT_THEMES,
       titles: DEFAULT_TITLES,
 
-      setAvatar: (avatarId) => {
-        const avatar = get().avatars.find(a => a.id === avatarId)
+      setAvatar: (_avatarId) => {
+        const avatar = get().avatars.find(a => a.id === _avatarId)
         if (avatar && avatar.unlocked) {
-          set({ selectedAvatar: avatarId })
+          set({ selectedAvatar: _avatarId })
         }
       },
 
-      setTheme: (themeId) => {
-        const theme = get().themes.find(t => t.id === themeId)
+      setTheme: (_themeId) => {
+        const theme = get().themes.find(t => t.id === _themeId)
         if (theme && theme.unlocked) {
-          set({ selectedTheme: themeId })
+          set({ selectedTheme: _themeId })
         }
       },
 
-      setTitle: (titleId) => {
-        const title = get().titles.find(t => t.id === titleId)
+      setTitle: (_titleId) => {
+        const title = get().titles.find(t => t.id === _titleId)
         if (title && title.unlocked) {
-          set({ selectedTitle: titleId })
+          set({ selectedTitle: _titleId })
         }
       },
 
-      unlockAvatar: (avatarId) => {
+      unlockAvatar: (_avatarId) => {
         const avatars = get().avatars.map(avatar => 
-          avatar.id === avatarId ? { ...avatar, unlocked: true } : avatar
+          avatar.id === _avatarId ? { ...avatar, unlocked: true } : avatar
         )
         set({ avatars })
       },
 
-      unlockTheme: (themeId) => {
+      unlockTheme: (_themeId) => {
         const themes = get().themes.map(theme => 
-          theme.id === themeId ? { ...theme, unlocked: true } : theme
+          theme.id === _themeId ? { ...theme, unlocked: true } : theme
         )
         set({ themes })
       },
 
-      unlockTitle: (titleId) => {
+      unlockTitle: (_titleId) => {
         const titles = get().titles.map(title => 
-          title.id === titleId ? { ...title, unlocked: true } : title
+          title.id === _titleId ? { ...title, unlocked: true } : title
         )
         set({ titles })
       },

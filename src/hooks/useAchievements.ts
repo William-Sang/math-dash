@@ -6,7 +6,7 @@ export interface Achievement {
   name: string
   description: string
   icon: string
-  condition: (stats: GameStats) => boolean
+  condition: (_stats: GameStats) => boolean
   unlocked: boolean
   unlockedAt?: Date
   reward?: {
@@ -242,7 +242,7 @@ interface AchievementsState {
   achievements: Achievement[]
   stats: GameStats
   unlockedPoints: number
-  updateStats: (sessionData: Partial<GameSession> & { 
+  updateStats: (_sessionData: Partial<GameSession> & { 
     operatorType?: 'addition' | 'subtraction' | 'multiplication' | 'division'
     isCorrect?: boolean
   }) => void
@@ -259,7 +259,7 @@ const useAchievementsStore = create<AchievementsState>()(
       stats: DEFAULT_STATS,
       unlockedPoints: 0,
 
-      updateStats: (sessionData) =>
+      updateStats: (_sessionData) =>
         set((state) => {
           const currentStats = state.stats
           const today = new Date().toISOString().split('T')[0]
@@ -280,38 +280,38 @@ const useAchievementsStore = create<AchievementsState>()(
           }
 
           // Update operator stats if provided
-          if (sessionData.operatorType && sessionData.isCorrect !== undefined) {
+          if (_sessionData.operatorType && _sessionData.isCorrect !== undefined) {
             const operatorStats = { ...currentStats.operatorStats }
-            operatorStats[sessionData.operatorType].total += 1
-            if (sessionData.isCorrect) {
-              operatorStats[sessionData.operatorType].correct += 1
+            operatorStats[_sessionData.operatorType].total += 1
+            if (_sessionData.isCorrect) {
+              operatorStats[_sessionData.operatorType].correct += 1
             }
             currentStats.operatorStats = operatorStats
           }
 
           const newStats: GameStats = {
             ...currentStats,
-            totalGames: currentStats.totalGames + (sessionData.score !== undefined ? 1 : 0), // Only increment if this is a complete game
-            totalScore: currentStats.totalScore + (sessionData.score || 0),
-            bestScore: Math.max(currentStats.bestScore, sessionData.score || 0),
-            totalTime: currentStats.totalTime + (sessionData.timeSpent || 0),
-            bestStreak: Math.max(currentStats.bestStreak, sessionData.streak || 0),
-            totalCorrectAnswers: currentStats.totalCorrectAnswers + (sessionData.perfectAnswers || 0),
-            totalWrongAnswers: currentStats.totalWrongAnswers + Math.max(0, (sessionData.questionsAnswered || 0) - (sessionData.perfectAnswers || 0)),
-            perfectGames: currentStats.perfectGames + (sessionData.accuracy === 100 ? 1 : 0),
-            fastestTime: currentStats.fastestTime === 0 ? (sessionData.timeSpent || 0) : Math.min(currentStats.fastestTime, sessionData.timeSpent || 0),
+            totalGames: currentStats.totalGames + (_sessionData.score !== undefined ? 1 : 0), // Only increment if this is a complete game
+            totalScore: currentStats.totalScore + (_sessionData.score || 0),
+            bestScore: Math.max(currentStats.bestScore, _sessionData.score || 0),
+            totalTime: currentStats.totalTime + (_sessionData.timeSpent || 0),
+            bestStreak: Math.max(currentStats.bestStreak, _sessionData.streak || 0),
+            totalCorrectAnswers: currentStats.totalCorrectAnswers + (_sessionData.perfectAnswers || 0),
+            totalWrongAnswers: currentStats.totalWrongAnswers + Math.max(0, (_sessionData.questionsAnswered || 0) - (_sessionData.perfectAnswers || 0)),
+            perfectGames: currentStats.perfectGames + (_sessionData.accuracy === 100 ? 1 : 0),
+            fastestTime: currentStats.fastestTime === 0 ? (_sessionData.timeSpent || 0) : Math.min(currentStats.fastestTime, _sessionData.timeSpent || 0),
             dailyStreak,
             lastPlayDate: today,
-            gameHistory: sessionData.score !== undefined ? [
+            gameHistory: _sessionData.score !== undefined ? [
               ...(currentStats.gameHistory || []),
               {
                 date: today,
-                score: sessionData.score || 0,
-                accuracy: sessionData.accuracy || 0,
-                timeSpent: sessionData.timeSpent || 0,
-                questionsAnswered: sessionData.questionsAnswered || 0,
-                perfectAnswers: sessionData.perfectAnswers || 0,
-                streak: sessionData.streak || 0
+                score: _sessionData.score || 0,
+                accuracy: _sessionData.accuracy || 0,
+                timeSpent: _sessionData.timeSpent || 0,
+                questionsAnswered: _sessionData.questionsAnswered || 0,
+                perfectAnswers: _sessionData.perfectAnswers || 0,
+                streak: _sessionData.streak || 0
               }
             ].slice(-50) : currentStats.gameHistory // Keep only last 50 games
           }

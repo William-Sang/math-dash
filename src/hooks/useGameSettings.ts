@@ -23,19 +23,19 @@ export const useGameSettings = create<GameSettingsState>()(
     (set) => ({
       settings: DEFAULT_SETTINGS,
       
-      setGameDuration: (duration: number) =>
+      setGameDuration: (_duration: number) =>
         set((state) => ({
           settings: {
             ...state.settings,
-            gameDuration: duration
+            gameDuration: _duration
           }
         })),
         
-      setDifficulty: (difficulty: GameSettings['difficulty']) =>
+      setDifficulty: (_difficulty: GameSettings['difficulty']) =>
         set((state) => ({
           settings: {
             ...state.settings,
-            difficulty
+            difficulty: _difficulty
           }
         })),
         

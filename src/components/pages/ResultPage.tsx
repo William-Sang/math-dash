@@ -7,6 +7,7 @@ interface ResultState {
   score: number
   totalTime: number
   accuracy: number
+  questionsAnswered?: number
 }
 
 export default function ResultPage() {
@@ -14,7 +15,7 @@ export default function ResultPage() {
   const location = useLocation()
   const { toast } = useToast()
   
-  const result: ResultState = location.state || { score: 0, totalTime: 0, accuracy: 0 }
+  const result: ResultState = location.state || { score: 0, totalTime: 0, accuracy: 0, questionsAnswered: 0 }
 
   const handleShare = () => {
     const shareText = `我在 Math Dash Mania 中获得了 ${result.score} 分！正确率 ${result.accuracy}%，用时 ${result.totalTime} 秒。快来挑战吧！`
@@ -102,7 +103,7 @@ export default function ResultPage() {
 
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
             <div className="text-sm text-gray-500 dark:text-gray-400 text-center">
-              平均每题用时: {result.totalTime > 0 ? (result.totalTime / Math.max(result.score / 10, 1)).toFixed(1) : 0}s
+              平均每题用时: {result.questionsAnswered && result.questionsAnswered > 0 ? (result.totalTime / result.questionsAnswered).toFixed(1) : 0}s
             </div>
           </div>
         </motion.div>

@@ -54,6 +54,15 @@ export default function GamePage() {
   const [correctAnswers, setCorrectAnswers] = useState(0)
   const [perfectAnswers, setPerfectAnswers] = useState(0)
   const isGeneratingQuestion = useRef(false)
+  const achievementTimers = useRef<NodeJS.Timeout[]>([])
+  const gameTimers = useRef<NodeJS.Timeout[]>([])
+
+  // Safe delay execution that cleans up on unmount
+  const safeDelay = useCallback((callback: () => void, delay: number) => {
+    const timerId = setTimeout(callback, delay)
+    gameTimers.current.push(timerId)
+    return timerId
+  }, [])
 
   const correctAnswer = useMemo(() => {
     const { num1, num2, operator } = question
@@ -61,7 +70,7 @@ export default function GamePage() {
       case '+': return num1 + num2
       case '-': return num1 - num2
       case '×': return num1 * num2
-      case '÷': return num1 / num2
+      case '÷': return Math.round(num1 / num2) // 确保除法结果为整数
       default: return 0
     }
   }, [question])
@@ -99,51 +108,58 @@ export default function GamePage() {
   }, [])
 
   const generateQuestion = useCallback(() => {
-    if (isGeneratingQuestion.current) return
+    if (isGeneratingQuestion.current) {
+      console.log('Question generation already in progress, skipping...')
+      return
+    }
     isGeneratingQuestion.current = true
     
-    const operators = ['+', '-', '×', '÷']
-    const operator = operators[Math.floor(Math.random() * operators.length)]
-    const questionType = selectedQuestionType
-    let num1: number, num2: number
-    
-    switch (operator) {
-      case '+':
-        num1 = Math.floor(Math.random() * 50) + 1
-        num2 = Math.floor(Math.random() * 50) + 1
-        break
-      case '-':
-        num1 = Math.floor(Math.random() * 50) + 20
-        num2 = Math.floor(Math.random() * num1)
-        break
-      case '×':
-        num1 = Math.floor(Math.random() * 12) + 1
-        num2 = Math.floor(Math.random() * 12) + 1
-        break
-      case '÷':
-        num2 = Math.floor(Math.random() * 12) + 1
-        num1 = num2 * (Math.floor(Math.random() * 12) + 1)
-        break
-      default:
-        num1 = 5
-        num2 = 3
-    }
-    
-    const newQuestion: Question = { num1, num2, operator, type: questionType }
-    
-    if (questionType === 'multiple-choice') {
-      const newCorrectAnswer = operator === '+' ? num1 + num2 : operator === '-' ? num1 - num2 : operator === '×' ? num1 * num2 : num1 / num2
-      newQuestion.options = generateMultipleChoiceOptions(newCorrectAnswer)
-    }
-    
-    setQuestion(newQuestion)
-    setAnswer('')
-    setSelectedOption(null)
-    
-    // Reset the flag after a short delay
-    setTimeout(() => {
+    try {
+      const operators = ['+', '-', '×', '÷']
+      const operator = operators[Math.floor(Math.random() * operators.length)]
+      const questionType = selectedQuestionType
+      let num1: number, num2: number
+      
+      switch (operator) {
+        case '+':
+          num1 = Math.floor(Math.random() * 50) + 1
+          num2 = Math.floor(Math.random() * 50) + 1
+          break
+        case '-':
+          num1 = Math.floor(Math.random() * 50) + 20
+          num2 = Math.floor(Math.random() * num1)
+          break
+        case '×':
+          num1 = Math.floor(Math.random() * 12) + 1
+          num2 = Math.floor(Math.random() * 12) + 1
+          break
+        case '÷':
+          num2 = Math.floor(Math.random() * 12) + 1
+          num1 = num2 * (Math.floor(Math.random() * 12) + 1)
+          break
+        default:
+          num1 = 5
+          num2 = 3
+      }
+      
+      const newQuestion: Question = { num1, num2, operator, type: questionType }
+      
+      if (questionType === 'multiple-choice') {
+        const newCorrectAnswer = operator === '+' ? num1 + num2 : operator === '-' ? num1 - num2 : operator === '×' ? num1 * num2 : Math.round(num1 / num2)
+        newQuestion.options = generateMultipleChoiceOptions(newCorrectAnswer)
+      }
+      
+      setQuestion(newQuestion)
+      setAnswer('')
+      setSelectedOption(null)
+      
+      console.log('New question generated:', newQuestion)
+    } catch (error) {
+      console.error('Error generating question:', error)
+    } finally {
+      // Reset the flag immediately after generating the question
       isGeneratingQuestion.current = false
-    }, 50)
+    }
   }, [selectedQuestionType, generateMultipleChoiceOptions])
 
   const handleGameEnd = useCallback(() => {
@@ -181,9 +197,10 @@ export default function GamePage() {
         
         // Then show individual achievements with delay
         newAchievements.forEach((achievement: Achievement, index: number) => {
-          setTimeout(() => {
+          const timerId = setTimeout(() => {
             toast.info(`${achievement.icon} ${achievement.name}`, achievement.description, 4000)
           }, (index + 1) * 1500) // 1.5秒间隔
+          achievementTimers.current.push(timerId)
         })
       }
     }
@@ -247,7 +264,7 @@ export default function GamePage() {
         }
         
         // Generate new question after a short delay
-        setTimeout(() => generateQuestion(), 100)
+        safeDelay(() => generateQuestion(), 100)
       } else {
         setLives(prevLives => prevLives - 1)
         setStreak(0)
@@ -259,22 +276,26 @@ export default function GamePage() {
           }
         } else {
           // Generate new question after a short delay
-          setTimeout(() => generateQuestion(), 100)
+          safeDelay(() => generateQuestion(), 100)
         }
       }
     } catch (error) {
       console.error('处理答案时出错:', error)
       toast.error('处理答案时出现错误')
     }
-  }, [correctAnswer, answer, selectedOption, question.type, question.operator, streak, lives, getOperatorType, updateStats, playSound, toast, generateQuestion])
+  }, [correctAnswer, answer, selectedOption, question.type, question.operator, streak, lives, getOperatorType, updateStats, playSound, toast, generateQuestion, safeDelay])
 
   const handleOptionClick = useCallback((option: number) => {
     try {
       setSelectedOption(option)
-      setTimeout(() => {
+      
+      // Add a small delay to show visual feedback
+      safeDelay(() => {
         try {
           const isCorrect = option === correctAnswer
           const operatorType = getOperatorType(question.operator)
+          
+          console.log(`Option clicked: ${option}, Correct answer: ${correctAnswer}, Is correct: ${isCorrect}`)
           
           // Update statistics
           setQuestionsAnswered(prev => prev + 1)
@@ -300,7 +321,8 @@ export default function GamePage() {
               toast.success(`🔥 ${streak + 1}连击! 奖励分数!`)
             }
             
-            setTimeout(() => generateQuestion(), 100)
+            // Generate next question immediately for correct answers
+            generateQuestion()
           } else {
             setLives(prevLives => prevLives - 1)
             setStreak(0)
@@ -311,19 +333,20 @@ export default function GamePage() {
                 handleGameEndRef.current()
               }
             } else {
-              setTimeout(() => generateQuestion(), 100)
+              // Generate next question immediately for incorrect answers too
+              generateQuestion()
             }
           }
         } catch (error) {
           console.error('处理选项点击时出错:', error)
           toast.error('处理答案时出现错误')
         }
-      }, 500)
+      }, 300) // Slightly longer delay to show visual feedback
     } catch (error) {
       console.error('选项点击出错:', error)
       toast.error('选择答案时出现错误')
     }
-  }, [correctAnswer, streak, lives, getOperatorType, updateStats, playSound, toast, question.operator, generateQuestion])
+  }, [correctAnswer, streak, lives, getOperatorType, updateStats, playSound, toast, question.operator, generateQuestion, safeDelay])
 
   // Game initialization and cleanup
   useEffect(() => {
@@ -362,6 +385,11 @@ export default function GamePage() {
       } catch (error) {
         console.error('Error stopping background music:', error)
       }
+      // Clear all timers
+      achievementTimers.current.forEach(timerId => clearTimeout(timerId))
+      achievementTimers.current = []
+      gameTimers.current.forEach(timerId => clearTimeout(timerId))
+      gameTimers.current = []
     }
   }, []) // Empty dependency array - this should only run once on mount
 

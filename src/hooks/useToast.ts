@@ -76,7 +76,7 @@ const useToastStore = create<ToastState>((set, get) => ({
 export const useToast = () => {
   const { toasts, addToast, removeToast, clearAllToasts } = useToastStore()
   
-  const toast = {
+  const toastMethods = {
     success: (title: string, description?: string, duration?: number) =>
       addToast({ type: 'success', title, description, duration }),
     error: (title: string, description?: string, duration?: number) =>
@@ -87,5 +87,5 @@ export const useToast = () => {
       addToast({ type: 'info', title, description, duration }),
   }
   
-  return { toasts, addToast, removeToast, clearAllToasts, toast }
+  return { toasts, addToast, removeToast, clearAllToasts, toast: toastMethods }
 } 
