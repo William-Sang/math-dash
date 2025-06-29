@@ -377,6 +377,26 @@ export default function SettingsPage() {
                 )}
               </div>
             </div>
+
+            {/* Audio Debug */}
+            <div className="card p-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+                音频调试
+              </h3>
+              
+              <div className="space-y-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  如果音效或音乐不工作，可以使用调试页面进行测试
+                </p>
+                
+                <button
+                  onClick={() => navigate('/audio-test')}
+                  className="btn btn-secondary w-full"
+                >
+                  打开音频测试页面
+                </button>
+              </div>
+            </div>
           </motion.div>
         )}
 

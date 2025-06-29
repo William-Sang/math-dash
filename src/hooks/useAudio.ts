@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Howl } from 'howler'
+import { Howl, Howler } from 'howler'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
@@ -19,12 +19,12 @@ const useAudioStore = create<AudioState>()(
     (set) => ({
       soundEnabled: true,
       musicEnabled: true,
-      soundVolume: 0.5,
+      soundVolume: 0.2,
       musicVolume: 0.2,
-      setSoundEnabled: (_enabled) => set({ soundEnabled: _enabled }),
-      setMusicEnabled: (_enabled) => set({ musicEnabled: _enabled }),
-      setSoundVolume: (_volume) => set({ soundVolume: _volume }),
-      setMusicVolume: (_volume) => set({ musicVolume: _volume }),
+      setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
+      setMusicEnabled: (enabled) => set({ musicEnabled: enabled }),
+      setSoundVolume: (volume) => set({ soundVolume: volume }),
+      setMusicVolume: (volume) => set({ musicVolume: volume }),
     }),
     {
       name: 'audio-settings',
@@ -32,42 +32,70 @@ const useAudioStore = create<AudioState>()(
   )
 )
 
-// Using a single, reliable sound effect for all UI sounds for testing purposes.
-const UI_SOUND_SRC = 'https://soundbible.com/grab.php?id=1280&type=mp3';
-
+// 使用 Mixkit 提供的免费音效文件 (https://mixkit.co/)
+// 所有音效均为免费使用，无需署名，符合 Mixkit Free License
 const SOUND_EFFECTS = {
-  correct: UI_SOUND_SRC,
-  incorrect: UI_SOUND_SRC,
-  click: UI_SOUND_SRC,
-  achievement: UI_SOUND_SRC,
-  gameStart: UI_SOUND_SRC,
-  gameEnd: UI_SOUND_SRC,
+  correct: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3', // 成功提示音 - 清脆的成功音效
+  incorrect: 'https://assets.mixkit.co/active_storage/sfx/2955/2955-preview.mp3', // 错误提示音 - 温和的错误提示
+  click: 'https://assets.mixkit.co/active_storage/sfx/2997/2997-preview.mp3', // 点击音效 - 简洁的UI点击声
+  achievement: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3', // 成就音效 - 与成功音效相同
+  gameStart: 'https://assets.mixkit.co/active_storage/sfx/2858/2858-preview.mp3', // 游戏开始音效 - 积极的开始提示音
+  gameEnd: 'https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3', // 游戏结束音效 - 温和的完成音效
 }
 
+// 保留原来的背景音乐（Mixkit的音乐文件有访问限制）
 const BACKGROUND_MUSIC_SRC = 'https://www.orangefreesounds.com/wp-content/uploads/2017/09/Swan-lake-music.mp3';
 
 class AudioManager {
   private sounds: { [key: string]: Howl } = {}
   private backgroundMusic: Howl | null = null
-  private audioStore: AudioState
+  private userInteracted: boolean = false
 
   constructor() {
-    this.audioStore = useAudioStore.getState()
     this.initializeSounds()
     this.initializeBackgroundMusic()
+    this.setupUserInteractionListener()
+  }
+
+  private setupUserInteractionListener() {
+    const handleUserInteraction = () => {
+      this.userInteracted = true
+      console.log('User interaction detected, audio context ready')
+      // 移除监听器，只需要一次交互
+      document.removeEventListener('click', handleUserInteraction)
+      document.removeEventListener('touchstart', handleUserInteraction)
+      document.removeEventListener('keydown', handleUserInteraction)
+    }
+
+    document.addEventListener('click', handleUserInteraction)
+    document.addEventListener('touchstart', handleUserInteraction)
+    document.addEventListener('keydown', handleUserInteraction)
   }
 
   private initializeSounds() {
     console.log("Initializing sounds from public URL...");
     Object.entries(SOUND_EFFECTS).forEach(([key, src]) => {
       try {
-        this.sounds[key] = new Howl({
+        // 为游戏结束音效添加特殊配置
+        const soundConfig: any = {
           src: [src],
-          volume: this.audioStore.soundVolume,
+          volume: 0.2, // 使用默认音量，稍后会通过updateSoundVolume更新
           preload: true,
-        })
+          onloaderror: (id: any, error: any) => {
+            console.error(`Error loading sound '${key}':`, error);
+          }
+        }
+        
+        // 限制游戏结束音效的播放时长为2秒
+        if (key === 'gameEnd') {
+          soundConfig.sprite = {
+            short: [0, 2000] // 从0秒开始，播放2秒
+          }
+        }
+        
+        this.sounds[key] = new Howl(soundConfig)
       } catch (error) {
-        console.error(`Error loading sound '${key}' from URL:`, error);
+        console.error(`Error creating sound '${key}':`, error);
       }
     })
     console.log("Sounds initialized.");
@@ -79,9 +107,15 @@ class AudioManager {
       this.backgroundMusic = new Howl({
         src: [BACKGROUND_MUSIC_SRC],
         loop: true,
-        volume: this.audioStore.musicVolume,
+        volume: 0.2, // 使用默认音量，稍后会通过updateMusicVolume更新
         preload: true,
-        html5: true, 
+        html5: true,
+        onloaderror: (id, error) => {
+          console.error("Error loading background music:", error);
+        },
+        onload: () => {
+          console.log("Background music loaded successfully.");
+        }
       });
       console.log("Background music object created.");
     } catch (error) {
@@ -90,37 +124,73 @@ class AudioManager {
   }
 
   playSound(soundName: keyof typeof SOUND_EFFECTS) {
-    if (!this.audioStore.soundEnabled) return
+    const currentState = useAudioStore.getState()
+    if (!currentState.soundEnabled || !this.userInteracted) {
+      console.log('Sound disabled or no user interaction:', { 
+        soundEnabled: currentState.soundEnabled, 
+        userInteracted: this.userInteracted 
+      })
+      return
+    }
     
     const sound = this.sounds[soundName]
     if (sound) {
-      sound.stop()
-      sound.volume(this.audioStore.soundVolume)
-      sound.play()
+      try {
+        sound.stop()
+        sound.volume(currentState.soundVolume)
+        
+        // 游戏结束音效使用限制时长的sprite
+        if (soundName === 'gameEnd') {
+          sound.play('short')
+        } else {
+          sound.play()
+        }
+        
+        console.log(`Playing sound: ${soundName}`)
+      } catch (error) {
+        console.error(`Error playing sound ${soundName}:`, error)
+      }
+    } else {
+      console.warn(`Sound ${soundName} not found`)
     }
   }
 
   private playMusicLogic() {
-    if (!this.backgroundMusic) return;
+    if (!this.backgroundMusic) {
+      console.log("No background music object available")
+      return;
+    }
 
     if (!this.backgroundMusic.playing()) {
-      const playId = this.backgroundMusic.play();
-      console.log("Attempting to play music with ID:", playId);
-      this.backgroundMusic.once('playerror', (id, err) => {
-        console.error('Background music play error:', err, `(ID: ${id})`);
-      });
-      this.backgroundMusic.once('play', () => {
-        console.log("Music started playing successfully.");
-      });
+      try {
+        const playId = this.backgroundMusic.play();
+        console.log("Attempting to play music with ID:", playId);
+        
+        this.backgroundMusic.once('playerror', (id, err) => {
+          console.error('Background music play error:', err, `(ID: ${id})`);
+        });
+        
+        this.backgroundMusic.once('play', () => {
+          console.log("Music started playing successfully.");
+        });
+      } catch (error) {
+        console.error('Error in playMusicLogic:', error)
+      }
     } else {
       console.log("Music is already playing.");
     }
   }
 
   playBackgroundMusic() {
-    console.log("playBackgroundMusic called. Music enabled:", this.audioStore.musicEnabled, "Context state:", Howler.ctx.state);
-    if (!this.audioStore.musicEnabled || !this.backgroundMusic) {
-      console.log("Play conditions not met.");
+    const currentState = useAudioStore.getState()
+    console.log("playBackgroundMusic called. Music enabled:", currentState.musicEnabled, "User interacted:", this.userInteracted, "Context state:", Howler.ctx.state);
+    
+    if (!currentState.musicEnabled || !this.backgroundMusic || !this.userInteracted) {
+      console.log("Play conditions not met:", {
+        musicEnabled: currentState.musicEnabled,
+        hasBackgroundMusic: !!this.backgroundMusic,
+        userInteracted: this.userInteracted
+      });
       return;
     }
 
@@ -137,20 +207,44 @@ class AudioManager {
   stopBackgroundMusic() {
     console.log("stopBackgroundMusic called.");
     if (this.backgroundMusic && this.backgroundMusic.playing()) {
-      this.backgroundMusic.stop()
-      console.log("Music stop command issued.");
+      try {
+        this.backgroundMusic.stop()
+        console.log("Music stop command issued.");
+      } catch (error) {
+        console.error('Error stopping music:', error)
+      }
     }
   }
 
   updateSoundVolume(volume: number) {
+    console.log('Updating sound volume to:', volume)
     Object.values(this.sounds).forEach(sound => {
-      sound.volume(volume)
+      try {
+        sound.volume(volume)
+      } catch (error) {
+        console.error('Error updating sound volume:', error)
+      }
     })
   }
 
   updateMusicVolume(volume: number) {
+    console.log('Updating music volume to:', volume)
     if (this.backgroundMusic) {
-      this.backgroundMusic.volume(volume)
+      try {
+        this.backgroundMusic.volume(volume)
+      } catch (error) {
+        console.error('Error updating music volume:', error)
+      }
+    }
+  }
+
+  // 新增方法：根据当前状态控制音乐播放
+  updateMusicPlayback() {
+    const currentState = useAudioStore.getState()
+    if (currentState.musicEnabled) {
+      this.playBackgroundMusic()
+    } else {
+      this.stopBackgroundMusic()
     }
   }
 }
@@ -180,6 +274,13 @@ export const useAudio = () => {
       managerRef.current.updateMusicVolume(audioStore.musicVolume)
     }
   }, [audioStore.musicVolume])
+
+  // 新增：监听音乐开关状态变化
+  useEffect(() => {
+    if (managerRef.current) {
+      managerRef.current.updateMusicPlayback()
+    }
+  }, [audioStore.musicEnabled])
 
   const playSound = (soundName: keyof typeof SOUND_EFFECTS) => {
     if (managerRef.current) {
