@@ -72,9 +72,6 @@ export default function HomePage() {
                 <div className="text-lg font-semibold text-gray-900 dark:text-white">
                   {currentTitle.name !== '无称号' ? currentTitle.name : '数学挑战者'}
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  {currentAvatar.name}
-                </div>
               </div>
             </div>
             
