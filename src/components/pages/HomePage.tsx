@@ -2,13 +2,20 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { Play, Settings, BarChart3, Moon, Sun, Edit3, CheckSquare, X } from 'lucide-react'
 import { useTheme } from '@/hooks/useTheme'
+import { usePersonalization } from '@/hooks/usePersonalization'
+import { useAchievements } from '@/hooks/useAchievements'
 import { useState } from 'react'
 
 export default function HomePage() {
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
+  const { getCurrentAvatar, getCurrentTitle } = usePersonalization()
+  const { stats } = useAchievements()
   const [selectedQuestionType, setSelectedQuestionType] = useState<'input' | 'multiple-choice'>('multiple-choice')
   const [showQuestionTypeModal, setShowQuestionTypeModal] = useState(false)
+  
+  const currentAvatar = getCurrentAvatar()
+  const currentTitle = getCurrentTitle()
 
   const handleStartGame = () => {
     setShowQuestionTypeModal(true)
@@ -58,6 +65,19 @@ export default function HomePage() {
           </motion.div>
           
           <div>
+            {/* User Profile */}
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="text-3xl">{currentAvatar.icon}</div>
+              <div className="text-left">
+                <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {currentTitle.name !== '无称号' ? currentTitle.name : '数学挑战者'}
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  {currentAvatar.name}
+                </div>
+              </div>
+            </div>
+            
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-2">
               Math Dash Mania
             </h1>
@@ -112,22 +132,33 @@ export default function HomePage() {
           className="card p-6 max-w-md mx-auto"
         >
           <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-            今日数据
+            总体数据
           </h3>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <div className="text-2xl font-bold text-primary-500">0</div>
+              <div className="text-2xl font-bold text-primary-500">{stats.totalGames}</div>
               <div className="text-sm text-gray-500 dark:text-gray-400">游戏次数</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-success-500">0%</div>
+              <div className="text-2xl font-bold text-success-500">{stats.accuracy}%</div>
               <div className="text-sm text-gray-500 dark:text-gray-400">正确率</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-yellow-500">0</div>
+              <div className="text-2xl font-bold text-yellow-500">{stats.bestScore}</div>
               <div className="text-sm text-gray-500 dark:text-gray-400">最高分</div>
             </div>
           </div>
+          
+          {stats.dailyStreak > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-orange-500">🔥</span>
+                <span className="text-sm text-gray-600 dark:text-gray-300">
+                  连续学习 {stats.dailyStreak} 天
+                </span>
+              </div>
+            </div>
+          )}
         </motion.div>
       </motion.div>
 
