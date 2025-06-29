@@ -26,6 +26,7 @@ interface ResultState {
   totalTime: number
   accuracy: number
   questionsAnswered?: number
+  endReason?: 'timeUp' | 'livesOut'
   newAchievements?: AchievementDisplay[]
 }
 
@@ -91,6 +92,25 @@ export default function ResultPage() {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               游戏结束！
             </h1>
+            {result.endReason === 'livesOut' && (
+              <div className="mb-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-red-700 dark:text-red-300 font-medium flex items-center justify-center gap-2">
+                  <span className="text-xl">💥</span>
+                  错误3次，游戏结束！
+                </p>
+                <p className="text-red-600 dark:text-red-400 text-sm mt-1">
+                  别灰心，继续练习会越来越好的！
+                </p>
+              </div>
+            )}
+            {result.endReason === 'timeUp' && (
+              <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <p className="text-blue-700 dark:text-blue-300 font-medium flex items-center justify-center gap-2">
+                  <span className="text-xl">⏰</span>
+                  时间到！
+                </p>
+              </div>
+            )}
             <p className={`text-xl font-semibold ${rating.color}`}>
               {rating.text}
             </p>

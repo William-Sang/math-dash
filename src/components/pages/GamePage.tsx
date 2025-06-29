@@ -38,7 +38,7 @@ export default function GamePage() {
   const [lives, setLives] = useState(3)
   const [streak, setStreak] = useState(0)
   const gameInitialized = useRef(false)
-  const handleGameEndRef = useRef<(() => void) | null>(null)
+  const handleGameEndRef = useRef<((endReason?: 'timeUp' | 'livesOut') => void) | null>(null)
   const gameEndedRef = useRef(false) // 防止重复调用游戏结束
   const [question, setQuestion] = useState<Question>({ 
     num1: 5, 
@@ -173,7 +173,7 @@ export default function GamePage() {
     }
   }, [settings.difficulty, selectedQuestionType, getRandomNumber])
 
-  const handleGameEnd = useCallback(() => {
+  const handleGameEnd = useCallback((endReason: 'timeUp' | 'livesOut' = 'timeUp') => {
     // 防止重复调用
     if (gameEndedRef.current) {
       return
@@ -227,6 +227,7 @@ export default function GamePage() {
             accuracy: finalAccuracy,
             questionsAnswered,
             streak,
+            endReason, // 添加结束原因
             newAchievements: serializableAchievements // 传递可序列化的成就对象数组
           } 
         })
@@ -286,7 +287,7 @@ export default function GamePage() {
         
         if (lives <= 1) {
           if (handleGameEndRef.current) {
-            handleGameEndRef.current()
+            handleGameEndRef.current('livesOut')
           }
         } else {
           // Generate new question after a short delay
@@ -341,7 +342,7 @@ export default function GamePage() {
             
             if (lives <= 1) {
               if (handleGameEndRef.current) {
-                handleGameEndRef.current()
+                handleGameEndRef.current('livesOut')
               }
             } else {
               // Generate new question
@@ -412,7 +413,7 @@ export default function GamePage() {
           // 使用setTimeout避免在setState回调中直接调用游戏结束
           setTimeout(() => {
             if (handleGameEndRef.current && !gameEndedRef.current) {
-              handleGameEndRef.current()
+              handleGameEndRef.current('timeUp')
             }
           }, 0)
           return 0
