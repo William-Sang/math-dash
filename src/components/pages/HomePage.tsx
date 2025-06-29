@@ -53,7 +53,7 @@ export default function HomePage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)]">
+      <div className="main-container flex flex-col items-center justify-center min-h-[calc(100vh-4rem)]">
         <motion.div
           {...fadeInPreset}
           className="text-center space-y-8 w-full max-w-md mx-auto"
@@ -74,7 +74,7 @@ export default function HomePage() {
               </div>
             </div>
             
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className="main-title text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-2">
               Math Dash Mania
             </h1>
             <p className="text-xl text-gray-600 dark:text-gray-300">
