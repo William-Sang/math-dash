@@ -39,6 +39,7 @@ export default function GamePage() {
   const [streak, setStreak] = useState(0)
   const gameInitialized = useRef(false)
   const handleGameEndRef = useRef<(() => void) | null>(null)
+  const gameEndedRef = useRef(false) // 防止重复调用游戏结束
   const [question, setQuestion] = useState<Question>({ 
     num1: 5, 
     num2: 3, 
@@ -174,6 +175,12 @@ export default function GamePage() {
   }, [settings.difficulty, selectedQuestionType, getRandomNumber])
 
   const handleGameEnd = useCallback(() => {
+    // 防止重复调用
+    if (gameEndedRef.current) {
+      return
+    }
+    gameEndedRef.current = true
+    
     setIsGameActive(false)
     stopBackgroundMusic()
     playSound('gameEnd')
@@ -423,18 +430,8 @@ export default function GamePage() {
     return () => clearInterval(timer)
   }, [isGameActive, timeLeft])
 
-  // Auto-end game when time runs out
-  useEffect(() => {
-    if (timeLeft <= 0 && isGameActive) {
-      try {
-        if (handleGameEndRef.current) {
-          handleGameEndRef.current()
-        }
-      } catch (error) {
-        console.error('Error ending game:', error)
-      }
-    }
-  }, [timeLeft, isGameActive]) // Remove handleGameEnd from dependencies
+  // 移除重复的游戏结束触发器，避免双重调用
+  // 游戏结束已经在定时器内部处理，这里不需要重复处理
 
   // Game pause/resume
   const togglePause = () => {
@@ -569,18 +566,18 @@ export default function GamePage() {
                 </button>
               </>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
                 {question.options?.map((option, index) => (
                   <button
                     key={index}
                     onClick={() => handleOptionClick(option)}
                     disabled={!isGameActive || selectedOption !== null}
-                    className={`btn btn-lg text-xl font-bold min-h-[60px] transition-all duration-200 ${
+                    className={`px-6 py-4 text-xl font-bold min-h-[60px] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 rounded-lg ${
                       selectedOption === option
                         ? selectedOption === correctAnswer
-                          ? 'btn-success'
-                          : 'btn-danger'
-                        : 'btn-outline hover:btn-primary'
+                          ? 'bg-green-500 text-white focus:ring-green-500 shadow-lg'
+                          : 'bg-red-500 text-white focus:ring-red-500 shadow-lg'
+                        : 'bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-900 dark:text-white focus:ring-primary-500 shadow-sm hover:shadow-md'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {option}

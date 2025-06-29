@@ -317,12 +317,13 @@ const useAchievementsStore = create<AchievementsState>()(
             totalGames: currentStats.totalGames + (_sessionData.score !== undefined ? 1 : 0), // Only increment if this is a complete game
             totalScore: currentStats.totalScore + (_sessionData.score || 0),
             bestScore: Math.max(currentStats.bestScore, _sessionData.score || 0),
-            totalTime: currentStats.totalTime + (_sessionData.timeSpent || 0),
+            // 只有当这是完整的游戏会话数据时才更新 totalTime
+            totalTime: _sessionData.score !== undefined ? currentStats.totalTime + (_sessionData.timeSpent || 0) : currentStats.totalTime,
             bestStreak: Math.max(currentStats.bestStreak, _sessionData.streak || 0),
             totalCorrectAnswers: currentStats.totalCorrectAnswers + (_sessionData.perfectAnswers || 0),
             totalWrongAnswers: currentStats.totalWrongAnswers + Math.max(0, (_sessionData.questionsAnswered || 0) - (_sessionData.perfectAnswers || 0)),
             perfectGames: currentStats.perfectGames + (_sessionData.accuracy === 100 ? 1 : 0),
-            fastestTime: currentStats.fastestTime === 0 ? (_sessionData.timeSpent || 0) : Math.min(currentStats.fastestTime, _sessionData.timeSpent || 0),
+            fastestTime: _sessionData.score !== undefined ? (currentStats.fastestTime === 0 ? (_sessionData.timeSpent || 0) : Math.min(currentStats.fastestTime, _sessionData.timeSpent || 0)) : currentStats.fastestTime,
             gameHistory: _sessionData.score !== undefined ? [
               ...(currentStats.gameHistory || []),
               {
