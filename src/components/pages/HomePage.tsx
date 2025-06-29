@@ -14,10 +14,29 @@ export default function HomePage() {
   const { stats, updateDailyStreak } = useAchievements()
   const [selectedQuestionType, setSelectedQuestionType] = useState<'input' | 'multiple-choice'>('multiple-choice')
   const [showQuestionTypeModal, setShowQuestionTypeModal] = useState(false)
+  const [enableAnimations, setEnableAnimations] = useState(false)
+  
+  // 延迟启用动画，确保关键内容先渲染
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setEnableAnimations(true)
+    }, 300) // 300ms 后启用动画
+    
+    return () => clearTimeout(timer)
+  }, [])
   
   // Update daily streak when visiting home page
   useEffect(() => {
-    updateDailyStreak()
+    // 使用 requestIdleCallback 延迟非关键操作
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(() => {
+        updateDailyStreak()
+      })
+    } else {
+      setTimeout(() => {
+        updateDailyStreak()
+      }, 100)
+    }
   }, [updateDailyStreak])
   
   const currentAvatar = getCurrentAvatar()
@@ -37,7 +56,7 @@ export default function HomePage() {
   }
 
   return (
-    <PageContainer>
+    <PageContainer enableAnimations={enableAnimations}>
       {/* Header */}
       <div className="absolute top-4 right-4">
         <button
@@ -55,7 +74,7 @@ export default function HomePage() {
       {/* Main Content */}
       <div className="main-container flex flex-col items-center justify-center min-h-[calc(100vh-4rem)]">
         <motion.div
-          {...fadeInPreset}
+          {...(enableAnimations ? fadeInPreset : { initial: {}, animate: {}, transition: {} })}
           className="text-center space-y-8 w-full max-w-md mx-auto"
         >
           {/* Logo & Title */}
@@ -115,7 +134,7 @@ export default function HomePage() {
         </div>
 
         {/* Quick Stats */}
-        <AnimatedCard className="p-6 w-full">
+        <AnimatedCard enableAnimations={enableAnimations} className="p-6 w-full">
           <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
             总体数据
           </h3>
@@ -151,18 +170,18 @@ export default function HomePage() {
       <AnimatePresence>
         {showQuestionTypeModal && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            initial={enableAnimations ? { opacity: 0 } : {}}
+            animate={enableAnimations ? { opacity: 1 } : {}}
+            exit={enableAnimations ? { opacity: 0 } : {}}
+            transition={enableAnimations ? { duration: 0.2 } : {}}
             className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
             onClick={handleCloseModal}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              initial={enableAnimations ? { scale: 0.9, opacity: 0 } : {}}
+              animate={enableAnimations ? { scale: 1, opacity: 1 } : {}}
+              exit={enableAnimations ? { scale: 0.9, opacity: 0 } : {}}
+              transition={enableAnimations ? { duration: 0.2 } : {}}
               className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 w-full max-w-md mx-auto"
               onClick={(e) => e.stopPropagation()}
             >
