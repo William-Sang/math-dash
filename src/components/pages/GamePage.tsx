@@ -168,12 +168,24 @@ export default function GamePage() {
     updateStats(sessionData)
     const newAchievements = checkAchievements()
     
-    // Show achievement notifications
+    // Show achievement notifications with delay to avoid overwhelming
     if (newAchievements.length > 0) {
-      newAchievements.forEach((achievement: Achievement) => {
+      if (newAchievements.length === 1) {
+        // Single achievement
         playSound('achievement')
-        toast.success(`🎉 解锁成就: ${achievement.name}`)
-      })
+        toast.success(`🎉 解锁成就: ${newAchievements[0].name}`, undefined, 5000)
+      } else {
+        // Multiple achievements - show summary first
+        playSound('achievement')
+        toast.success(`🎉 解锁了 ${newAchievements.length} 个成就！`, '点击查看详情', 6000)
+        
+        // Then show individual achievements with delay
+        newAchievements.forEach((achievement: Achievement, index: number) => {
+          setTimeout(() => {
+            toast.info(`${achievement.icon} ${achievement.name}`, achievement.description, 4000)
+          }, (index + 1) * 1500) // 1.5秒间隔
+        })
+      }
     }
     
     navigate('/result', { 
