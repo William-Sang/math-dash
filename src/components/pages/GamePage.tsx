@@ -456,87 +456,95 @@ export default function GamePage() {
     <ErrorBoundary>
       <PageContainer enableAnimations={false}>
       {/* Header */}
-      <div className="flex justify-between items-center px-4 mb-8">
+      <div className="flex justify-between items-center px-2 sm:px-4 mb-6 sm:mb-8 gap-2">
         <button
           onClick={() => {
             stopBackgroundMusic()
             navigate('/')
           }}
-          className="btn btn-secondary btn-sm flex items-center gap-2"
+          className="btn btn-secondary btn-sm flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-shrink-0"
         >
-          <Home className="w-4 h-4" />
-          主页
+          <Home className="w-3 h-3 sm:w-4 sm:h-4" />
+          <span className="hidden sm:inline">主页</span>
         </button>
         
         {/* Audio Controls */}
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+          <label className="flex items-center gap-1 text-xs sm:text-sm">
             <input
               type="checkbox"
               checked={soundEnabled}
               onChange={(e) => setSoundEnabled(e.target.checked)}
-              className="checkbox checkbox-sm"
+              className="checkbox checkbox-xs sm:checkbox-sm"
             />
-            音效
+            <span className="hidden sm:inline">音效</span>
+            <span className="sm:hidden">🔊</span>
           </label>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-1 text-xs sm:text-sm">
             <input
               type="checkbox"
               checked={musicEnabled}
               onChange={(e) => setMusicEnabled(e.target.checked)}
-              className="checkbox checkbox-sm"
+              className="checkbox checkbox-xs sm:checkbox-sm"
             />
-            音乐
+            <span className="hidden sm:inline">音乐</span>
+            <span className="sm:hidden">🎵</span>
           </label>
         </div>
         
         <button
           onClick={togglePause}
-          className="btn btn-secondary btn-sm flex items-center gap-2"
+          className="btn btn-secondary btn-sm flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-shrink-0"
         >
-          <Pause className="w-4 h-4" />
-          {isGameActive ? '暂停' : '继续'}
+          <Pause className="w-3 h-3 sm:w-4 sm:h-4" />
+          <span className="hidden sm:inline">{isGameActive ? '暂停' : '继续'}</span>
         </button>
       </div>
 
       {/* Game Stats */}
-      <div className="flex justify-between items-center px-4 mb-8">
-        <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-          <Timer className="w-5 h-5" />
-          <span className="font-bold text-lg">{timeLeft}s</span>
+      <div className="flex justify-between items-center px-2 sm:px-4 mb-6 sm:mb-8">
+        <div className="flex items-center gap-1 sm:gap-2 text-blue-600 dark:text-blue-400">
+          <Timer className="w-4 h-4 sm:w-5 sm:h-5" />
+          <span className="font-bold text-base sm:text-lg">{timeLeft}s</span>
         </div>
         
-        <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
-          <Zap className="w-5 h-5" />
-          <span className="font-bold text-lg">{streak}</span>
-          {streak >= 5 && <span className="text-sm">🔥</span>}
+        <div className="flex items-center gap-1 sm:gap-2 text-yellow-600 dark:text-yellow-400">
+          <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
+          <span className="font-bold text-base sm:text-lg">{streak}</span>
+          {streak >= 5 && <span className="text-xs sm:text-sm">🔥</span>}
         </div>
         
-        <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-          <Heart className="w-5 h-5" />
-          <span className="font-bold text-lg">{lives}</span>
+        <div className="flex items-center gap-1 sm:gap-2 text-red-600 dark:text-red-400">
+          <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
+          <span className="font-bold text-base sm:text-lg">{lives}</span>
         </div>
       </div>
 
       {/* Score */}
-      <div className="text-center mb-8">
-        <div className="text-4xl font-bold text-primary-600 dark:text-primary-400">
+      <div className="text-center mb-6 sm:mb-8 px-2">
+        <div className="text-3xl sm:text-4xl font-bold text-primary-600 dark:text-primary-400">
           {score}
         </div>
         <div className="text-gray-500 dark:text-gray-400">分数</div>
         
         {/* Progress info */}
-        <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          答题: {questionsAnswered} | 正确: {correctAnswers} | 准确率: {questionsAnswered > 0 ? Math.round((correctAnswers / questionsAnswered) * 100) : 0}%
+        <div className="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
+            <span>答题: {questionsAnswered}</span>
+            <span>正确: {correctAnswers}</span>
+            <span>准确率: {questionsAnswered > 0 ? Math.round((correctAnswers / questionsAnswered) * 100) : 0}%</span>
+          </div>
         </div>
       </div>
 
       {/* Question */}
-      <div className="flex-1 flex flex-col items-center justify-center space-y-8">
-        <div className="card p-8 max-w-md mx-auto">
+      <div className="flex-1 flex flex-col items-center justify-center space-y-8 px-4">
+        <div className="card p-4 sm:p-6 md:p-8 w-full max-w-lg mx-auto">
           <div className="text-center">
-            <div className="text-5xl font-bold text-gray-900 dark:text-white mb-6">
-              {question.num1} {question.operator} {question.num2} = ?
+            <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6 font-mono">
+              <div className="break-all">
+                {question.num1} {question.operator} {question.num2} = ?
+              </div>
             </div>
             
             {/* Question Type Indicator */}
@@ -551,7 +559,7 @@ export default function GamePage() {
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  className="input text-center text-2xl font-bold mb-6"
+                  className="input text-center text-xl sm:text-2xl font-bold font-mono mb-6 w-full max-w-xs mx-auto"
                   placeholder="答案"
                   autoFocus
                   disabled={!isGameActive}
@@ -560,19 +568,19 @@ export default function GamePage() {
                 <button
                   onClick={handleSubmit}
                   disabled={!canSubmit || !isGameActive}
-                  className="btn btn-primary btn-lg w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn btn-primary btn-lg w-full max-w-xs mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   确认答案
                 </button>
               </>
             ) : (
-              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
                 {question.options?.map((option, index) => (
                   <button
                     key={index}
                     onClick={() => handleOptionClick(option)}
                     disabled={!isGameActive || selectedOption !== null}
-                    className={`px-6 py-4 text-xl font-bold min-h-[60px] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 rounded-lg ${
+                    className={`px-3 sm:px-4 md:px-6 py-3 sm:py-4 text-lg sm:text-xl font-bold min-h-[50px] sm:min-h-[60px] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 rounded-lg font-mono break-all ${
                       selectedOption === option
                         ? selectedOption === correctAnswer
                           ? 'bg-green-500 text-white focus:ring-green-500 shadow-lg'

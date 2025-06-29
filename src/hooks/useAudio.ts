@@ -18,7 +18,7 @@ const useAudioStore = create<AudioState>()(
   persist(
     (set) => ({
       soundEnabled: true,
-      musicEnabled: true,
+      musicEnabled: false, // 默认关闭音乐
       soundVolume: 0.2,
       musicVolume: 0.2,
       setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
