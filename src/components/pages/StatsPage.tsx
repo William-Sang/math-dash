@@ -78,18 +78,9 @@ export default function StatsPage() {
     { name: '未解锁', value: achievements.filter(a => !a.unlocked).length, color: '#6b7280' }
   ]
 
-  const rarityData = achievements.reduce((acc, achievement) => {
-    if (achievement.unlocked) {
-      acc[achievement.rarity] = (acc[achievement.rarity] || 0) + 1
-    }
-    return acc
-  }, {} as Record<string, number>)
 
-  const rarityChartData = Object.entries(rarityData).map(([rarity, count]) => ({
-    name: rarity === 'common' ? '普通' : rarity === 'rare' ? '稀有' : rarity === 'epic' ? '史诗' : '传奇',
-    value: count,
-    color: rarity === 'common' ? '#6b7280' : rarity === 'rare' ? '#3b82f6' : rarity === 'epic' ? '#7c3aed' : '#f59e0b'
-  }))
+
+
 
   return (
     <div className="min-h-screen py-8">

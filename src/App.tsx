@@ -5,6 +5,7 @@ import GamePage from '@/components/pages/GamePage'
 import ResultPage from '@/components/pages/ResultPage'
 import SettingsPage from '@/components/pages/SettingsPage'
 import StatsPage from '@/components/pages/StatsPage'
+import AudioTestPage from '@/components/pages/AudioTestPage'
 import { useTheme } from '@/hooks/useTheme'
 import { Toaster } from '@/components/ui/Toaster'
 
@@ -26,6 +27,7 @@ function App() {
             <Route path="/result" element={<ResultPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/stats" element={<StatsPage />} />
+            <Route path="/audio-test" element={<AudioTestPage />} />
           </Routes>
         </div>
         <Toaster />

@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { useAudio } from './useAudio'
 
 export interface Achievement {
   id: string
@@ -253,128 +252,103 @@ interface AchievementsState {
   getPendingAchievements: () => Achievement[]
 }
 
-export const useAchievements = create<AchievementsState>()(
+const useAchievementsStore = create<AchievementsState>()(
   persist(
     (set, get) => ({
       achievements: DEFAULT_ACHIEVEMENTS,
       stats: DEFAULT_STATS,
       unlockedPoints: 0,
 
-      updateStats: (sessionData) => {
-        const currentStats = get().stats
-        const today = new Date().toISOString().split('T')[0]
-        
-        // Update daily streak
-        let dailyStreak = currentStats.dailyStreak
-        if (currentStats.lastPlayDate !== today) {
-          const lastDate = new Date(currentStats.lastPlayDate)
-          const currentDate = new Date(today)
-          const diffTime = Math.abs(currentDate.getTime() - lastDate.getTime())
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      updateStats: (sessionData) =>
+        set((state) => {
+          const currentStats = state.stats
+          const today = new Date().toISOString().split('T')[0]
           
-          if (diffDays === 1) {
-            dailyStreak += 1
-          } else if (diffDays > 1) {
-            dailyStreak = 1
-          }
-        }
-
-        // Update operator stats if provided
-        if (sessionData.operatorType && sessionData.isCorrect !== undefined) {
-          const operatorStats = { ...currentStats.operatorStats }
-          operatorStats[sessionData.operatorType].total += 1
-          if (sessionData.isCorrect) {
-            operatorStats[sessionData.operatorType].correct += 1
-          }
-          currentStats.operatorStats = operatorStats
-        }
-
-        const newStats: GameStats = {
-          ...currentStats,
-          totalGames: currentStats.totalGames + (sessionData.score !== undefined ? 1 : 0), // Only increment if this is a complete game
-          totalScore: currentStats.totalScore + (sessionData.score || 0),
-          bestScore: Math.max(currentStats.bestScore, sessionData.score || 0),
-          totalTime: currentStats.totalTime + (sessionData.timeSpent || 0),
-          bestStreak: Math.max(currentStats.bestStreak, sessionData.streak || 0),
-          totalCorrectAnswers: currentStats.totalCorrectAnswers + (sessionData.perfectAnswers || 0),
-          totalWrongAnswers: currentStats.totalWrongAnswers + Math.max(0, (sessionData.questionsAnswered || 0) - (sessionData.perfectAnswers || 0)),
-          perfectGames: currentStats.perfectGames + (sessionData.accuracy === 100 ? 1 : 0),
-          fastestTime: currentStats.fastestTime === 0 ? (sessionData.timeSpent || 0) : Math.min(currentStats.fastestTime, sessionData.timeSpent || 0),
-          dailyStreak,
-          lastPlayDate: today,
-          gameHistory: sessionData.score !== undefined ? [
-            ...(currentStats.gameHistory || []),
-            {
-              date: today,
-              score: sessionData.score || 0,
-              accuracy: sessionData.accuracy || 0,
-              timeSpent: sessionData.timeSpent || 0,
-              questionsAnswered: sessionData.questionsAnswered || 0,
-              perfectAnswers: sessionData.perfectAnswers || 0,
-              streak: sessionData.streak || 0
+          // Update daily streak
+          let dailyStreak = currentStats.dailyStreak
+          if (currentStats.lastPlayDate !== today) {
+            const lastDate = new Date(currentStats.lastPlayDate)
+            const currentDate = new Date(today)
+            const diffTime = Math.abs(currentDate.getTime() - lastDate.getTime())
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+            
+            if (diffDays === 1) {
+              dailyStreak += 1
+            } else if (diffDays > 1) {
+              dailyStreak = 1
             }
-          ].slice(-50) : currentStats.gameHistory // Keep only last 50 games
-        }
+          }
 
-        // Calculate averages
-        if (newStats.totalGames > 0) {
-          newStats.averageScore = Math.round(newStats.totalScore / newStats.totalGames)
-          newStats.averageTime = Math.round(newStats.totalTime / newStats.totalGames)
-          const totalAnswers = newStats.totalCorrectAnswers + newStats.totalWrongAnswers
-          newStats.accuracy = totalAnswers > 0 ? Math.round((newStats.totalCorrectAnswers / totalAnswers) * 100) : 0
-        }
+          // Update operator stats if provided
+          if (sessionData.operatorType && sessionData.isCorrect !== undefined) {
+            const operatorStats = { ...currentStats.operatorStats }
+            operatorStats[sessionData.operatorType].total += 1
+            if (sessionData.isCorrect) {
+              operatorStats[sessionData.operatorType].correct += 1
+            }
+            currentStats.operatorStats = operatorStats
+          }
 
-        set({ stats: newStats })
-        
-        // Check for new achievements only if this is a complete game session
-        if (sessionData.score !== undefined) {
-          return get().checkAchievements()
-        }
-        
-        return []
-      },
+          const newStats: GameStats = {
+            ...currentStats,
+            totalGames: currentStats.totalGames + (sessionData.score !== undefined ? 1 : 0), // Only increment if this is a complete game
+            totalScore: currentStats.totalScore + (sessionData.score || 0),
+            bestScore: Math.max(currentStats.bestScore, sessionData.score || 0),
+            totalTime: currentStats.totalTime + (sessionData.timeSpent || 0),
+            bestStreak: Math.max(currentStats.bestStreak, sessionData.streak || 0),
+            totalCorrectAnswers: currentStats.totalCorrectAnswers + (sessionData.perfectAnswers || 0),
+            totalWrongAnswers: currentStats.totalWrongAnswers + Math.max(0, (sessionData.questionsAnswered || 0) - (sessionData.perfectAnswers || 0)),
+            perfectGames: currentStats.perfectGames + (sessionData.accuracy === 100 ? 1 : 0),
+            fastestTime: currentStats.fastestTime === 0 ? (sessionData.timeSpent || 0) : Math.min(currentStats.fastestTime, sessionData.timeSpent || 0),
+            dailyStreak,
+            lastPlayDate: today,
+            gameHistory: sessionData.score !== undefined ? [
+              ...(currentStats.gameHistory || []),
+              {
+                date: today,
+                score: sessionData.score || 0,
+                accuracy: sessionData.accuracy || 0,
+                timeSpent: sessionData.timeSpent || 0,
+                questionsAnswered: sessionData.questionsAnswered || 0,
+                perfectAnswers: sessionData.perfectAnswers || 0,
+                streak: sessionData.streak || 0
+              }
+            ].slice(-50) : currentStats.gameHistory // Keep only last 50 games
+          }
+
+          // Calculate averages
+          if (newStats.totalGames > 0) {
+            newStats.averageScore = Math.round(newStats.totalScore / newStats.totalGames)
+            newStats.averageTime = Math.round(newStats.totalTime / newStats.totalGames)
+            const totalAnswers = newStats.totalCorrectAnswers + newStats.totalWrongAnswers
+            newStats.accuracy = totalAnswers > 0 ? Math.round((newStats.totalCorrectAnswers / totalAnswers) * 100) : 0
+          }
+
+          return { stats: newStats }
+        }),
 
       checkAchievements: () => {
-        const { achievements, stats } = get()
+        const { stats, achievements } = get()
         const newlyUnlocked: Achievement[] = []
 
-        const updatedAchievements = achievements.map(achievement => {
-          if (!achievement.unlocked && achievement.condition(stats)) {
-            const unlockedAchievement = {
-              ...achievement,
-              unlocked: true,
-              unlockedAt: new Date()
-            }
-            newlyUnlocked.push(unlockedAchievement)
-            return unlockedAchievement
+        const defaultConditions = new Map(DEFAULT_ACHIEVEMENTS.map(a => [a.id, a.condition]));
+
+        achievements.forEach((achievement) => {
+          const condition = defaultConditions.get(achievement.id);
+          if (condition && !achievement.unlocked && condition(stats)) {
+            newlyUnlocked.push({ ...achievement, unlocked: true, unlockedAt: new Date() })
+            set((state) => ({
+              achievements: state.achievements.map((a) =>
+                a.id === achievement.id ? { ...a, unlocked: true, unlockedAt: new Date() } : a
+              ),
+              unlockedPoints: state.unlockedPoints + (achievement.reward?.value as number || 0)
+            }))
           }
-          return achievement
         })
-
-        if (newlyUnlocked.length > 0) {
-          const pointsEarned = newlyUnlocked.reduce((total, achievement) => {
-            if (achievement.reward?.type === 'points') {
-              return total + (achievement.reward.value as number)
-            }
-            return total
-          }, 0)
-
-          set({ 
-            achievements: updatedAchievements,
-            unlockedPoints: get().unlockedPoints + pointsEarned
-          })
-        }
-
         return newlyUnlocked
       },
 
-      resetStats: () => {
-        set({
-          stats: DEFAULT_STATS,
-          achievements: DEFAULT_ACHIEVEMENTS,
-          unlockedPoints: 0
-        })
-      },
+      resetStats: () => set({ stats: DEFAULT_STATS, achievements: DEFAULT_ACHIEVEMENTS, unlockedPoints: 0 }),
 
       getUnlockedAchievements: () => {
         return get().achievements.filter(a => a.unlocked)
@@ -389,3 +363,5 @@ export const useAchievements = create<AchievementsState>()(
     }
   )
 )
+
+export const useAchievements = useAchievementsStore;

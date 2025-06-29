@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Pause, Home, Timer, Zap, Heart } from 'lucide-react'
 import { useAudio } from '@/hooks/useAudio'
-import { useAchievements } from '@/hooks/useAchievements'
+import { useAchievements, Achievement } from '@/hooks/useAchievements'
 import { useToast } from '@/hooks/useToast'
+import { useGameSettings } from '@/hooks/useGameSettings'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 interface Question {
   num1: number
@@ -25,15 +27,18 @@ export default function GamePage() {
   const selectedQuestionType = state?.questionType || 'multiple-choice'
   
   // Hooks
-  const { playSound, playBackgroundMusic, stopBackgroundMusic } = useAudio()
-  const { updateStats } = useAchievements()
+  const { playSound, playBackgroundMusic, stopBackgroundMusic, soundEnabled, setSoundEnabled, musicEnabled, setMusicEnabled } = useAudio()
+  const { updateStats, checkAchievements } = useAchievements()
   const { toast } = useToast()
+  const { settings } = useGameSettings()
   
   // Game state
   const [score, setScore] = useState(0)
-  const [timeLeft, setTimeLeft] = useState(60)
+  const [timeLeft, setTimeLeft] = useState(settings.gameDuration)
   const [lives, setLives] = useState(3)
   const [streak, setStreak] = useState(0)
+  const gameInitialized = useRef(false)
+  const handleGameEndRef = useRef<(() => void) | null>(null)
   const [question, setQuestion] = useState<Question>({ 
     num1: 5, 
     num2: 3, 
@@ -48,8 +53,9 @@ export default function GamePage() {
   const [questionsAnswered, setQuestionsAnswered] = useState(0)
   const [correctAnswers, setCorrectAnswers] = useState(0)
   const [perfectAnswers, setPerfectAnswers] = useState(0)
+  const isGeneratingQuestion = useRef(false)
 
-  const calculateAnswer = useCallback(() => {
+  const correctAnswer = useMemo(() => {
     const { num1, num2, operator } = question
     switch (operator) {
       case '+': return num1 + num2
@@ -93,6 +99,9 @@ export default function GamePage() {
   }, [])
 
   const generateQuestion = useCallback(() => {
+    if (isGeneratingQuestion.current) return
+    isGeneratingQuestion.current = true
+    
     const operators = ['+', '-', '×', '÷']
     const operator = operators[Math.floor(Math.random() * operators.length)]
     const questionType = selectedQuestionType
@@ -123,21 +132,18 @@ export default function GamePage() {
     const newQuestion: Question = { num1, num2, operator, type: questionType }
     
     if (questionType === 'multiple-choice') {
-      const correctAnswer = (() => {
-        switch (operator) {
-          case '+': return num1 + num2
-          case '-': return num1 - num2
-          case '×': return num1 * num2
-          case '÷': return num1 / num2
-          default: return 0
-        }
-      })()
-      newQuestion.options = generateMultipleChoiceOptions(correctAnswer)
+      const newCorrectAnswer = operator === '+' ? num1 + num2 : operator === '-' ? num1 - num2 : operator === '×' ? num1 * num2 : num1 / num2
+      newQuestion.options = generateMultipleChoiceOptions(newCorrectAnswer)
     }
     
     setQuestion(newQuestion)
     setAnswer('')
     setSelectedOption(null)
+    
+    // Reset the flag after a short delay
+    setTimeout(() => {
+      isGeneratingQuestion.current = false
+    }, 50)
   }, [selectedQuestionType, generateMultipleChoiceOptions])
 
   const handleGameEnd = useCallback(() => {
@@ -159,11 +165,12 @@ export default function GamePage() {
       streak
     }
     
-    const newAchievements = updateStats(sessionData)
+    updateStats(sessionData)
+    const newAchievements = checkAchievements()
     
     // Show achievement notifications
     if (newAchievements.length > 0) {
-      newAchievements.forEach(achievement => {
+      newAchievements.forEach((achievement: Achievement) => {
         playSound('achievement')
         toast.success(`🎉 解锁成就: ${achievement.name}`)
       })
@@ -179,64 +186,28 @@ export default function GamePage() {
         newAchievements: newAchievements.length
       } 
     })
-  }, [navigate, score, gameStartTime, questionsAnswered, correctAnswers, perfectAnswers, streak, updateStats, stopBackgroundMusic, playSound, toast])
+  }, [navigate, score, gameStartTime, questionsAnswered, correctAnswers, perfectAnswers, streak, updateStats, checkAchievements, stopBackgroundMusic, playSound, toast])
+
+  // Update the ref whenever handleGameEnd changes
+  useEffect(() => {
+    handleGameEndRef.current = handleGameEnd
+  }, [handleGameEnd])
 
   const handleSubmit = useCallback(() => {
-    const correctAnswer = calculateAnswer()
-    let userAnswer: number
-    
-    if (question.type === 'input') {
-      userAnswer = parseInt(answer)
-    } else {
-      userAnswer = selectedOption || 0
-    }
-    
-    const isCorrect = userAnswer === correctAnswer
-    const operatorType = getOperatorType(question.operator)
-    
-    // Update statistics
-    setQuestionsAnswered(prev => prev + 1)
-    if (isCorrect) {
-      setCorrectAnswers(prev => prev + 1)
-      setPerfectAnswers(prev => prev + 1)
-    }
-    
-    // Update operator-specific stats
-    updateStats({
-      operatorType: operatorType as any,
-      isCorrect
-    })
-    
-    if (isCorrect) {
-      const points = 10 + (streak * 2)
-      setScore(prevScore => prevScore + points)
-      setStreak(prevStreak => prevStreak + 1)
-      playSound('correct')
+    try {
+      let userAnswer: number
       
-      // Show streak bonuses
-      if (streak > 0 && (streak + 1) % 5 === 0) {
-        toast.success(`🔥 ${streak + 1}连击! 奖励分数!`)
-      }
-      
-      generateQuestion()
-    } else {
-      setLives(prevLives => prevLives - 1)
-      setStreak(0)
-      playSound('incorrect')
-      
-      if (lives <= 1) {
-        handleGameEnd()
+      if (question.type === 'input') {
+        userAnswer = parseInt(answer)
+        if (isNaN(userAnswer)) {
+          toast.error('请输入有效的数字')
+          return
+        }
       } else {
-        generateQuestion()
+        userAnswer = selectedOption || 0
       }
-    }
-  }, [calculateAnswer, answer, selectedOption, question.type, question.operator, streak, lives, generateQuestion, handleGameEnd, getOperatorType, updateStats, playSound, toast])
-
-  const handleOptionClick = useCallback((option: number) => {
-    setSelectedOption(option)
-    setTimeout(() => {
-      const correctAnswer = calculateAnswer()
-      const isCorrect = option === correctAnswer
+      
+      const isCorrect = userAnswer === correctAnswer
       const operatorType = getOperatorType(question.operator)
       
       // Update statistics
@@ -263,41 +234,150 @@ export default function GamePage() {
           toast.success(`🔥 ${streak + 1}连击! 奖励分数!`)
         }
         
-        generateQuestion()
+        // Generate new question after a short delay
+        setTimeout(() => generateQuestion(), 100)
       } else {
         setLives(prevLives => prevLives - 1)
         setStreak(0)
         playSound('incorrect')
         
         if (lives <= 1) {
-          handleGameEnd()
+          if (handleGameEndRef.current) {
+            handleGameEndRef.current()
+          }
         } else {
-          generateQuestion()
+          // Generate new question after a short delay
+          setTimeout(() => generateQuestion(), 100)
         }
       }
-    }, 500)
-  }, [calculateAnswer, streak, lives, generateQuestion, handleGameEnd, getOperatorType, updateStats, playSound, toast, question.operator])
+    } catch (error) {
+      console.error('处理答案时出错:', error)
+      toast.error('处理答案时出现错误')
+    }
+  }, [correctAnswer, answer, selectedOption, question.type, question.operator, streak, lives, getOperatorType, updateStats, playSound, toast, generateQuestion])
+
+  const handleOptionClick = useCallback((option: number) => {
+    try {
+      setSelectedOption(option)
+      setTimeout(() => {
+        try {
+          const isCorrect = option === correctAnswer
+          const operatorType = getOperatorType(question.operator)
+          
+          // Update statistics
+          setQuestionsAnswered(prev => prev + 1)
+          if (isCorrect) {
+            setCorrectAnswers(prev => prev + 1)
+            setPerfectAnswers(prev => prev + 1)
+          }
+          
+          // Update operator-specific stats
+          updateStats({
+            operatorType: operatorType as any,
+            isCorrect
+          })
+          
+          if (isCorrect) {
+            const points = 10 + (streak * 2)
+            setScore(prevScore => prevScore + points)
+            setStreak(prevStreak => prevStreak + 1)
+            playSound('correct')
+            
+            // Show streak bonuses
+            if (streak > 0 && (streak + 1) % 5 === 0) {
+              toast.success(`🔥 ${streak + 1}连击! 奖励分数!`)
+            }
+            
+            setTimeout(() => generateQuestion(), 100)
+          } else {
+            setLives(prevLives => prevLives - 1)
+            setStreak(0)
+            playSound('incorrect')
+            
+            if (lives <= 1) {
+              if (handleGameEndRef.current) {
+                handleGameEndRef.current()
+              }
+            } else {
+              setTimeout(() => generateQuestion(), 100)
+            }
+          }
+        } catch (error) {
+          console.error('处理选项点击时出错:', error)
+          toast.error('处理答案时出现错误')
+        }
+      }, 500)
+    } catch (error) {
+      console.error('选项点击出错:', error)
+      toast.error('选择答案时出现错误')
+    }
+  }, [correctAnswer, streak, lives, getOperatorType, updateStats, playSound, toast, question.operator, generateQuestion])
 
   // Game initialization and cleanup
   useEffect(() => {
-    playSound('gameStart')
-    playBackgroundMusic()
-    generateQuestion()
+    if (!gameInitialized.current) {
+      gameInitialized.current = true
+      // Use refs to avoid dependency issues
+      const audioManager = {
+        playSound: (soundName: string) => {
+          try {
+            playSound(soundName as any)
+          } catch (error) {
+            console.error('Error playing sound:', error)
+          }
+        },
+        playBackgroundMusic: () => {
+          try {
+            playBackgroundMusic()
+          } catch (error) {
+            console.error('Error playing background music:', error)
+          }
+        }
+      }
+      
+      audioManager.playSound('gameStart')
+      audioManager.playBackgroundMusic()
+      
+      // Generate initial question safely
+      if (!isGeneratingQuestion.current) {
+        generateQuestion()
+      }
+    }
     
     return () => {
-      stopBackgroundMusic()
+      try {
+        stopBackgroundMusic()
+      } catch (error) {
+        console.error('Error stopping background music:', error)
+      }
     }
-  }, [playSound, playBackgroundMusic, stopBackgroundMusic, generateQuestion])
+  }, []) // Empty dependency array - this should only run once on mount
+
+  // Update game time when settings change (only if game hasn't started significantly)
+  useEffect(() => {
+    // Only reset time if the game just started (within first few seconds)
+    const gameRunTime = Math.round((Date.now() - gameStartTime) / 1000)
+    if (gameRunTime < 5) {
+      setTimeLeft(settings.gameDuration)
+    }
+  }, [settings.gameDuration, gameStartTime])
 
   // Timer
   useEffect(() => {
     if (isGameActive && timeLeft > 0) {
       const timer = setTimeout(() => setTimeLeft(prev => prev - 1), 1000)
       return () => clearTimeout(timer)
-    } else if (timeLeft === 0) {
-      handleGameEnd()
+    } else if (timeLeft === 0 && isGameActive) {
+      // Call handleGameEnd safely using ref to avoid dependency issues
+      if (handleGameEndRef.current) {
+        try {
+          handleGameEndRef.current()
+        } catch (error) {
+          console.error('Error ending game:', error)
+        }
+      }
     }
-  }, [timeLeft, isGameActive, handleGameEnd])
+  }, [timeLeft, isGameActive]) // Remove handleGameEnd from dependencies
 
   // Game pause/resume
   const togglePause = () => {
@@ -319,7 +399,8 @@ export default function GamePage() {
   const canSubmit = question.type === 'input' ? answer : selectedOption !== null
 
   return (
-    <div className="min-h-screen flex flex-col py-8">
+    <ErrorBoundary>
+      <div className="min-h-screen flex flex-col py-8">
       {/* Header */}
       <div className="flex justify-between items-center px-4 mb-8">
         <button
@@ -332,6 +413,28 @@ export default function GamePage() {
           <Home className="w-4 h-4" />
           主页
         </button>
+        
+        {/* Audio Controls */}
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={soundEnabled}
+              onChange={(e) => setSoundEnabled(e.target.checked)}
+              className="checkbox checkbox-sm"
+            />
+            音效
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={musicEnabled}
+              onChange={(e) => setMusicEnabled(e.target.checked)}
+              className="checkbox checkbox-sm"
+            />
+            音乐
+          </label>
+        </div>
         
         <button
           onClick={togglePause}
@@ -423,20 +526,20 @@ export default function GamePage() {
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 {question.options?.map((option, index) => (
-                  <button
+                  <motion.button
                     key={index}
                     onClick={() => handleOptionClick(option)}
                     disabled={!isGameActive || selectedOption !== null}
                     className={`btn btn-lg text-xl font-bold min-h-[60px] transition-all duration-200 ${
                       selectedOption === option
-                        ? selectedOption === calculateAnswer()
+                        ? selectedOption === correctAnswer
                           ? 'btn-success'
                           : 'btn-danger'
                         : 'btn-outline hover:btn-primary'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {option}
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             )}
@@ -465,5 +568,6 @@ export default function GamePage() {
         </motion.div>
       )}
     </div>
+    </ErrorBoundary>
   )
 } 

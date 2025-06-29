@@ -19,8 +19,8 @@ const useAudioStore = create<AudioState>()(
     (set) => ({
       soundEnabled: true,
       musicEnabled: true,
-      soundVolume: 0.7,
-      musicVolume: 0.5,
+      soundVolume: 0.5,
+      musicVolume: 0.2,
       setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
       setMusicEnabled: (enabled) => set({ musicEnabled: enabled }),
       setSoundVolume: (volume) => set({ soundVolume: volume }),
@@ -32,15 +32,19 @@ const useAudioStore = create<AudioState>()(
   )
 )
 
-// Sound effects data URLs (base64 encoded short sounds)
+// Using a single, reliable sound effect for all UI sounds for testing purposes.
+const UI_SOUND_SRC = 'https://soundbible.com/grab.php?id=1280&type=mp3';
+
 const SOUND_EFFECTS = {
-  correct: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR', // Simple beep
-  incorrect: 'data:audio/wav;base64,UklGRjIGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR', // Different tone
-  click: 'data:audio/wav;base64,UklGRjIGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR', // Click sound
-  achievement: 'data:audio/wav;base64,UklGRjIGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR', // Achievement fanfare
-  gameStart: 'data:audio/wav;base64,UklGRjIGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR', // Game start
-  gameEnd: 'data:audio/wav;base64,UklGRjIGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR', // Game end
+  correct: UI_SOUND_SRC,
+  incorrect: UI_SOUND_SRC,
+  click: UI_SOUND_SRC,
+  achievement: UI_SOUND_SRC,
+  gameStart: UI_SOUND_SRC,
+  gameEnd: UI_SOUND_SRC,
 }
+
+const BACKGROUND_MUSIC_SRC = 'https://www.orangefreesounds.com/wp-content/uploads/2017/09/Swan-lake-music.mp3';
 
 class AudioManager {
   private sounds: { [key: string]: Howl } = {}
@@ -54,23 +58,35 @@ class AudioManager {
   }
 
   private initializeSounds() {
+    console.log("Initializing sounds from public URL...");
     Object.entries(SOUND_EFFECTS).forEach(([key, src]) => {
-      this.sounds[key] = new Howl({
-        src: [src],
-        volume: this.audioStore.soundVolume,
-        preload: true,
-      })
+      try {
+        this.sounds[key] = new Howl({
+          src: [src],
+          volume: this.audioStore.soundVolume,
+          preload: true,
+        })
+      } catch (error) {
+        console.error(`Error loading sound '${key}' from URL:`, error);
+      }
     })
+    console.log("Sounds initialized.");
   }
 
   private initializeBackgroundMusic() {
-    // Create a simple ambient background track using Web Audio API
-    this.backgroundMusic = new Howl({
-      src: ['data:audio/wav;base64,UklGRjIGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR'],
-      loop: true,
-      volume: this.audioStore.musicVolume,
-      preload: true,
-    })
+    console.log("Initializing background music from public URL...");
+    try {
+      this.backgroundMusic = new Howl({
+        src: [BACKGROUND_MUSIC_SRC],
+        loop: true,
+        volume: this.audioStore.musicVolume,
+        preload: true,
+        html5: true, 
+      });
+      console.log("Background music object created.");
+    } catch (error) {
+      console.error("Error creating background music Howl object from URL:", error);
+    }
   }
 
   playSound(soundName: keyof typeof SOUND_EFFECTS) {
@@ -78,21 +94,51 @@ class AudioManager {
     
     const sound = this.sounds[soundName]
     if (sound) {
+      sound.stop()
       sound.volume(this.audioStore.soundVolume)
       sound.play()
     }
   }
 
+  private playMusicLogic() {
+    if (!this.backgroundMusic) return;
+
+    if (!this.backgroundMusic.playing()) {
+      const playId = this.backgroundMusic.play();
+      console.log("Attempting to play music with ID:", playId);
+      this.backgroundMusic.once('playerror', (id, err) => {
+        console.error('Background music play error:', err, `(ID: ${id})`);
+      });
+      this.backgroundMusic.once('play', () => {
+        console.log("Music started playing successfully.");
+      });
+    } else {
+      console.log("Music is already playing.");
+    }
+  }
+
   playBackgroundMusic() {
-    if (!this.audioStore.musicEnabled || !this.backgroundMusic) return
-    
-    this.backgroundMusic.volume(this.audioStore.musicVolume)
-    this.backgroundMusic.play()
+    console.log("playBackgroundMusic called. Music enabled:", this.audioStore.musicEnabled, "Context state:", Howler.ctx.state);
+    if (!this.audioStore.musicEnabled || !this.backgroundMusic) {
+      console.log("Play conditions not met.");
+      return;
+    }
+
+    if (Howler.ctx.state === 'suspended') {
+      Howler.ctx.resume().then(() => {
+        console.log('AudioContext resumed successfully. Now playing music.');
+        this.playMusicLogic();
+      }).catch(e => console.error("Error resuming AudioContext:", e));
+    } else {
+      this.playMusicLogic();
+    }
   }
 
   stopBackgroundMusic() {
-    if (this.backgroundMusic) {
+    console.log("stopBackgroundMusic called.");
+    if (this.backgroundMusic && this.backgroundMusic.playing()) {
       this.backgroundMusic.stop()
+      console.log("Music stop command issued.");
     }
   }
 
@@ -116,39 +162,40 @@ export const useAudio = () => {
   const managerRef = useRef<AudioManager | null>(null)
 
   useEffect(() => {
-    if (!managerRef.current) {
-      managerRef.current = new AudioManager()
-      audioManager = managerRef.current
+    if (!audioManager) {
+      console.log("Creating new AudioManager instance.");
+      audioManager = new AudioManager()
     }
+    managerRef.current = audioManager;
   }, [])
 
   useEffect(() => {
-    if (audioManager) {
-      audioManager.updateSoundVolume(audioStore.soundVolume)
+    if (managerRef.current) {
+      managerRef.current.updateSoundVolume(audioStore.soundVolume)
     }
   }, [audioStore.soundVolume])
 
   useEffect(() => {
-    if (audioManager) {
-      audioManager.updateMusicVolume(audioStore.musicVolume)
+    if (managerRef.current) {
+      managerRef.current.updateMusicVolume(audioStore.musicVolume)
     }
   }, [audioStore.musicVolume])
 
   const playSound = (soundName: keyof typeof SOUND_EFFECTS) => {
-    if (audioManager) {
-      audioManager.playSound(soundName)
+    if (managerRef.current) {
+      managerRef.current.playSound(soundName)
     }
   }
 
   const playBackgroundMusic = () => {
-    if (audioManager) {
-      audioManager.playBackgroundMusic()
+    if (managerRef.current) {
+      managerRef.current.playBackgroundMusic()
     }
   }
 
   const stopBackgroundMusic = () => {
-    if (audioManager) {
-      audioManager.stopBackgroundMusic()
+    if (managerRef.current) {
+      managerRef.current.stopBackgroundMusic()
     }
   }
 

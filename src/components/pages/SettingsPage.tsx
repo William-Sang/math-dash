@@ -6,6 +6,7 @@ import { useAudio } from '@/hooks/useAudio'
 import { usePersonalization } from '@/hooks/usePersonalization'
 import { useAchievements } from '@/hooks/useAchievements'
 import { useToast } from '@/hooks/useToast'
+import { useGameSettings } from '@/hooks/useGameSettings'
 import { useState } from 'react'
 
 export default function SettingsPage() {
@@ -13,6 +14,9 @@ export default function SettingsPage() {
   const { theme, toggleTheme } = useTheme()
   const { toast } = useToast()
   const { resetStats } = useAchievements()
+  
+  // Game settings
+  const { settings, setGameDuration, setDifficulty, resetSettings } = useGameSettings()
   
   // Audio settings
   const {
@@ -48,6 +52,7 @@ export default function SettingsPage() {
     if (confirm('确定要清除所有数据吗？此操作不可撤销。')) {
       localStorage.clear()
       resetStats()
+      resetSettings()
       toast.success('数据已清除')
     }
   }
@@ -193,9 +198,13 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     游戏时长
                   </label>
-                  <select className="input">
+                  <select 
+                    className="input"
+                    value={settings.gameDuration}
+                    onChange={(e) => setGameDuration(parseInt(e.target.value))}
+                  >
                     <option value="30">30秒</option>
-                    <option value="60" selected>60秒</option>
+                    <option value="60">60秒</option>
                     <option value="90">90秒</option>
                     <option value="120">120秒</option>
                   </select>
@@ -205,9 +214,13 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     难度等级
                   </label>
-                  <select className="input">
+                  <select 
+                    className="input"
+                    value={settings.difficulty}
+                    onChange={(e) => setDifficulty(e.target.value as 'easy' | 'medium' | 'hard' | 'expert')}
+                  >
                     <option value="easy">简单</option>
-                    <option value="medium" selected>中等</option>
+                    <option value="medium">中等</option>
                     <option value="hard">困难</option>
                     <option value="expert">专家</option>
                   </select>
